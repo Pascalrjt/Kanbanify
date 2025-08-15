@@ -23,17 +23,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
-import { 
-  Plus, 
-  Folder, 
-  Settings, 
-  Trash2, 
-  Edit, 
+import {
+  Plus,
+  Folder,
+  Trash2,
+  Edit,
   Eye,
-  Calendar,
   Users,
-  Archive,
-  MoreHorizontal
+  MoreHorizontal,
 } from "lucide-react"
 
 const BACKGROUND_COLORS = [
@@ -53,20 +50,20 @@ interface BoardManagerProps {
 }
 
 export function BoardManager({ trigger }: BoardManagerProps) {
-  const { 
-    boards, 
-    currentBoard, 
-    createBoard, 
-    updateBoard, 
-    deleteBoard, 
+  const {
+    boards,
+    currentBoard,
+    createBoard,
+    updateBoard,
+    deleteBoard,
     setCurrentBoard,
-    fetchBoard 
+    fetchBoard,
   } = useBoardStore()
-  
+
   const [isOpen, setIsOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [isEditing, setIsEditing] = useState<string | null>(null)
-  
+
   // Form state
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -145,17 +142,26 @@ export function BoardManager({ trigger }: BoardManagerProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {trigger || defaultTrigger}
-      </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
+      <DialogContent
+        className="
+          w-[95vw]
+          max-w-[95vw]
+          md:max-w-[90vw]
+          xl:max-w-6xl
+          2xl:max-w-7xl
+          max-h-[90vh]
+          overflow-y-auto
+        "
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Folder className="h-5 w-5" />
             Board Manager
           </DialogTitle>
           <DialogDescription>
-            Create, edit, and manage your boards. Switch between boards or customize their appearance.
+            Create, edit, and manage your boards. Switch between boards or
+            customize their appearance.
           </DialogDescription>
         </DialogHeader>
 
@@ -172,7 +178,7 @@ export function BoardManager({ trigger }: BoardManagerProps) {
                     Cancel
                   </Button>
                 </div>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Title</Label>
@@ -182,7 +188,7 @@ export function BoardManager({ trigger }: BoardManagerProps) {
                       placeholder="Board title..."
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label>Background Color</Label>
                     <div className="flex gap-2 flex-wrap">
@@ -190,7 +196,9 @@ export function BoardManager({ trigger }: BoardManagerProps) {
                         <button
                           key={color}
                           className={`w-8 h-8 rounded-md border-2 ${
-                            background === color ? "border-foreground" : "border-transparent"
+                            background === color
+                              ? "border-foreground"
+                              : "border-transparent"
                           }`}
                           style={{ backgroundColor: color }}
                           onClick={() => setBackground(color)}
@@ -199,7 +207,7 @@ export function BoardManager({ trigger }: BoardManagerProps) {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label>Description (optional)</Label>
                   <Textarea
@@ -209,10 +217,14 @@ export function BoardManager({ trigger }: BoardManagerProps) {
                     rows={3}
                   />
                 </div>
-                
+
                 <div className="flex gap-2">
-                  <Button 
-                    onClick={isEditing ? () => handleUpdateBoard(isEditing) : handleCreateBoard}
+                  <Button
+                    onClick={
+                      isEditing
+                        ? () => handleUpdateBoard(isEditing)
+                        : handleCreateBoard
+                    }
                     disabled={!title.trim()}
                   >
                     {isEditing ? "Update Board" : "Create Board"}
@@ -227,7 +239,7 @@ export function BoardManager({ trigger }: BoardManagerProps) {
 
           {/* Create Board Button */}
           {!isCreating && !isEditing && (
-            <Button 
+            <Button
               onClick={() => setIsCreating(true)}
               className="w-full"
               variant="outline"
@@ -246,31 +258,41 @@ export function BoardManager({ trigger }: BoardManagerProps) {
               <div className="text-center py-8 text-muted-foreground">
                 <Folder className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <div>No boards yet</div>
-                <div className="text-sm">Create your first board to get started</div>
+                <div className="text-sm">
+                  Create your first board to get started
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div
+                className="
+                  grid
+                  grid-cols-[repeat(auto-fit,minmax(320px,420px))]
+                  gap-6
+                "
+              >
                 {boards.map((board) => (
-                  <Card 
-                    key={board.id} 
-                    className={`p-4 cursor-pointer transition-all hover:shadow-md ${
+                  <Card
+                    key={board.id}
+                    className={`p-4 cursor-pointer transition-all hover:shadow-md min-w-0 ${
                       currentBoard?.id === board.id ? "ring-2 ring-primary" : ""
                     }`}
-                    style={{ 
+                    style={{
                       borderTop: `4px solid ${board.background}`,
                     }}
                   >
                     <div className="space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1 flex-1">
-                          <h4 className="font-medium line-clamp-1">{board.title}</h4>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <h4 className="font-medium line-clamp-2 break-words">
+                            {board.title}
+                          </h4>
                           {board.description && (
-                            <p className="text-sm text-muted-foreground line-clamp-2">
+                            <p className="text-sm text-muted-foreground line-clamp-3 break-words">
                               {board.description}
                             </p>
                           )}
                         </div>
-                        
+
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button variant="ghost" size="sm">
@@ -311,7 +333,7 @@ export function BoardManager({ trigger }: BoardManagerProps) {
                           </PopoverContent>
                         </Popover>
                       </div>
-                      
+
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
                           <Folder className="h-3 w-3" />
@@ -322,7 +344,7 @@ export function BoardManager({ trigger }: BoardManagerProps) {
                           {board.members?.length || 0} members
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         {currentBoard?.id === board.id && (
                           <Badge variant="secondary" className="text-xs">
@@ -333,14 +355,16 @@ export function BoardManager({ trigger }: BoardManagerProps) {
                           {new Date(board.updatedAt).toLocaleDateString()}
                         </div>
                       </div>
-                      
+
                       <Button
                         variant="outline"
                         size="sm"
                         className="w-full"
                         onClick={() => handleSelectBoard(board)}
                       >
-                        {currentBoard?.id === board.id ? "Current Board" : "Open Board"}
+                        {currentBoard?.id === board.id
+                          ? "Current Board"
+                          : "Open Board"}
                       </Button>
                     </div>
                   </Card>
