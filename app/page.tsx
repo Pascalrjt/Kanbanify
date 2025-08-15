@@ -15,6 +15,9 @@ import {
   Filter,
   Calendar,
   Users,
+  Edit,
+  Trash2,
+  Archive,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -27,6 +30,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import {
   DndContext,
@@ -37,9 +47,10 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  rectIntersection,
   useDroppable,
 } from "@dnd-kit/core"
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
+import { SortableContext, useSortable, verticalListSortingStrategy, horizontalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { Card as CardType, List as ListType, TeamMember } from "@/types"
 import { CardDetailModal } from "@/components/modals/CardDetailModal"
@@ -111,10 +122,57 @@ function DraggableCard({ card, onCardClick }: { card: CardType; onCardClick: (ca
   )
 }
 
-function DroppableList({ list, onCardClick }: { list: ListType & { cards: CardType[] }; onCardClick: (card: CardType) => void }) {
-  const { createCard } = useBoardStore()
+function SortableList({ list, onCardClick }: { list: ListType & { cards: CardType[] }; onCardClick: (card: CardType) => void }) {
+  const { 
+    attributes, 
+    listeners, 
+    setNodeRef, 
+    transform, 
+    transition, 
+    isDragging,
+    isOver 
+  } = useSortable({ 
+    id: list.id,
+    data: {
+      type: 'list',
+      list,
+    }
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`transition-all ${isDragging ? 'opacity-50' : ''} ${isOver ? 'scale-105' : ''}`}
+    >
+      <DroppableList 
+        list={list} 
+        onCardClick={onCardClick}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+    </div>
+  )
+}
+
+function DroppableList({ 
+  list, 
+  onCardClick, 
+  dragHandleProps 
+}: { 
+  list: ListType & { cards: CardType[] }; 
+  onCardClick: (card: CardType) => void;
+  dragHandleProps?: any;
+}) {
+  const { createCard, updateList, deleteList } = useBoardStore()
   const [isAddingCard, setIsAddingCard] = useState(false)
   const [newCardTitle, setNewCardTitle] = useState("")
+  const [isEditingList, setIsEditingList] = useState(false)
+  const [editListTitle, setEditListTitle] = useState(list.title)
   
   const { isOver, setNodeRef } = useDroppable({
     id: list.id,
@@ -136,16 +194,85 @@ function DroppableList({ list, onCardClick }: { list: ListType & { cards: CardTy
       console.error("Failed to add card:", error)
     }
   }
+
+  const handleEditList = async () => {
+    if (!editListTitle.trim()) return
+
+    try {
+      await updateList(list.id, {
+        title: editListTitle.trim(),
+      })
+      setIsEditingList(false)
+    } catch (error) {
+      console.error("Failed to update list:", error)
+    }
+  }
+
+  const handleDeleteList = async () => {
+    if (list.cards.length > 0) {
+      if (!confirm(`Delete "${list.title}"? This will also delete all ${list.cards.length} cards in this list.`)) {
+        return
+      }
+    }
+
+    try {
+      await deleteList(list.id)
+    } catch (error) {
+      console.error("Failed to delete list:", error)
+    }
+  }
   return (
     <div className="flex-shrink-0 w-80">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-semibold text-foreground font-heading flex items-center gap-2">
-          {list.title}
-          <span className="bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">{list.cards.length}</span>
-        </h2>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
+        {isEditingList ? (
+          <div className="flex items-center gap-2 flex-1">
+            <Input
+              value={editListTitle}
+              onChange={(e) => setEditListTitle(e.target.value)}
+              className="h-8 text-sm font-semibold"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleEditList()
+                } else if (e.key === "Escape") {
+                  setIsEditingList(false)
+                  setEditListTitle(list.title)
+                }
+              }}
+              onBlur={handleEditList}
+              autoFocus
+            />
+          </div>
+        ) : (
+          <h2 
+            className="font-semibold text-foreground font-heading flex items-center gap-2 cursor-grab"
+            {...dragHandleProps}
+          >
+            {list.title}
+            <span className="bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">{list.cards.length}</span>
+          </h2>
+        )}
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setIsEditingList(true)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit List
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={handleDeleteList}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete List
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <SortableContext items={list.cards.map((card) => card.id)} strategy={verticalListSortingStrategy}>
@@ -227,9 +354,11 @@ export default function KanbanBoard() {
     moveCard,
     createList,
     setCurrentBoard,
+    reorderLists,
   } = useBoardStore()
 
   const [activeCard, setActiveCard] = useState<CardType | null>(null)
+  const [activeList, setActiveList] = useState<ListType | null>(null)
   const [selectedCard, setSelectedCard] = useState<CardType | null>(null)
   const [isCardModalOpen, setIsCardModalOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -293,21 +422,76 @@ export default function KanbanBoard() {
     }),
   )
 
+  // Custom collision detection for mixed list and card dragging
+  const customCollisionDetection = (args: any) => {
+    const { active } = args
+    
+    if (active.data.current?.type === 'list') {
+      // For list dragging, use rectIntersection for better horizontal detection
+      return rectIntersection(args)
+    } else {
+      // For card dragging, use closestCorners
+      return closestCorners(args)
+    }
+  }
+
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
-    const card = cards.find((card) => card.id === active.id)
-
-    if (card) {
-      setActiveCard(card)
+    
+    if (active.data.current?.type === 'list') {
+      const list = active.data.current.list
+      setActiveList(list)
+    } else {
+      const card = cards.find((card) => card.id === active.id)
+      if (card) {
+        setActiveCard(card)
+      }
     }
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     setActiveCard(null)
+    setActiveList(null)
 
     if (!over) return
 
+    // Handle list reordering
+    if (active.data.current?.type === 'list') {
+      const activeListId = active.id as string
+      const overListId = over.id as string
+      
+      console.log('Dragging list:', activeListId, 'over:', overListId)
+      
+      if (activeListId !== overListId) {
+        const oldIndex = lists.findIndex(list => list.id === activeListId)
+        let newIndex = lists.findIndex(list => list.id === overListId)
+        
+        console.log('Old index:', oldIndex, 'New index:', newIndex)
+        
+        // If dropping on a card, find its parent list
+        if (newIndex === -1) {
+          const overCard = cards.find(card => card.id === overListId)
+          if (overCard) {
+            newIndex = lists.findIndex(list => list.id === overCard.listId)
+            console.log('Found parent list index:', newIndex)
+          }
+        }
+        
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          console.log('Reordering lists from', oldIndex, 'to', newIndex)
+          // Create new order
+          const reorderedListIds = [...lists]
+          const [removed] = reorderedListIds.splice(oldIndex, 1)
+          reorderedListIds.splice(newIndex, 0, removed)
+          
+          reorderLists(reorderedListIds.map(list => list.id))
+        }
+      }
+      return
+    }
+
+    // Handle card movement (existing logic)
     const activeCardId = active.id as string
     const overCardId = over.id as string
 
@@ -569,16 +753,17 @@ export default function KanbanBoard() {
           ) : (
             <DndContext
               sensors={sensors}
-              collisionDetection={closestCorners}
+              collisionDetection={customCollisionDetection}
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
             >
-              <div className="flex gap-6 overflow-x-auto pb-6">
-                {filteredLists.map((list) => (
-                  <DroppableList key={list.id} list={list} onCardClick={handleCardClick} />
-                ))}
+              <SortableContext items={filteredLists.map(list => list.id)} strategy={horizontalListSortingStrategy}>
+                <div className="flex gap-6 overflow-x-auto pb-6">
+                  {filteredLists.map((list) => (
+                    <SortableList key={list.id} list={list} onCardClick={handleCardClick} />
+                  ))}
 
-                <div className="flex-shrink-0 w-80">
+                  <div className="flex-shrink-0 w-80">
                   {isAddingList ? (
                     <div className="space-y-3 p-3 bg-card rounded-lg border">
                       <Input
@@ -622,8 +807,9 @@ export default function KanbanBoard() {
                       Add another list
                     </Button>
                   )}
+                  </div>
                 </div>
-              </div>
+              </SortableContext>
 
               <DragOverlay>
                 {activeCard ? (
@@ -633,6 +819,20 @@ export default function KanbanBoard() {
                       <p className="text-sm text-muted-foreground line-clamp-2">{activeCard.description}</p>
                     </div>
                   </Card>
+                ) : activeList ? (
+                  <div className="w-80 bg-background border rounded-lg shadow-lg rotate-3 opacity-90">
+                    <div className="p-4 border-b">
+                      <h3 className="font-semibold text-foreground font-heading flex items-center gap-2">
+                        {activeList.title}
+                        <span className="bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
+                          {listsWithCards.find(l => l.id === activeList.id)?.cards.length || 0}
+                        </span>
+                      </h3>
+                    </div>
+                    <div className="p-4 text-sm text-muted-foreground">
+                      Dragging list...
+                    </div>
+                  </div>
                 ) : null}
               </DragOverlay>
             </DndContext>

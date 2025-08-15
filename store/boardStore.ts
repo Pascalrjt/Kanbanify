@@ -227,6 +227,7 @@ export const useBoardStore = create<Store>()(
 
     reorderLists: async (listIds: string[]) => {
       // Optimistic update
+      const originalLists = get().lists
       set((state) => {
         const reorderedLists = listIds.map((id, index) => {
           const list = state.lists.find(l => l.id === id)
@@ -238,7 +239,26 @@ export const useBoardStore = create<Store>()(
         state.lists = reorderedLists
       })
 
-      // TODO: Implement API endpoint for batch list reordering
+      try {
+        // Update positions for each list
+        const updatePromises = listIds.map((id, index) => {
+          const newPosition = (index + 1) * 1000
+          return apiRequest(`/api/lists/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ position: newPosition }),
+          })
+        })
+        
+        await Promise.all(updatePromises)
+      } catch (error) {
+        // Revert optimistic update on error
+        set((state) => {
+          state.lists = originalLists
+        })
+        set((state) => {
+          state.error = error instanceof Error ? error.message : 'Failed to reorder lists'
+        })
+      }
     },
 
     // Card actions
