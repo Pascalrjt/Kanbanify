@@ -1,0 +1,97 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_PRISMA_URL") // uses connection pooling
+  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
+}
+
+model Board {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  background  String       @default("#0079bf")
+  lists       List[]
+  labels      Label[]
+  members     TeamMember[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model TeamMember {
+  id        String           @id @default(cuid())
+  name      String
+  color     String           // For avatar background color
+  boardId   String
+  board     Board            @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards     CardAssignment[]
+  createdAt DateTime         @default(now())
+}
+
+model List {
+  id        String   @id @default(cuid())
+  title     String
+  position  Int
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards     Card[]
+  createdAt DateTime @default(now())
+}
+
+model Card {
+  id          String           @id @default(cuid())
+  title       String
+  description String?
+  position    Int
+  dueDate     DateTime?
+  priority    String?          @default("medium") // low, medium, high
+  status      String?          @default("active") // active, completed, archived
+  listId      String
+  list        List             @relation(fields: [listId], references: [id], onDelete: Cascade)
+  labels      CardLabel[]
+  checklist   ChecklistItem[]
+  assignees   CardAssignment[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model CardAssignment {
+  cardId       String
+  teamMemberId String
+  card         Card       @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  teamMember   TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime   @default(now())
+  @@id([cardId, teamMemberId])
+}
+
+model Label {
+  id      String      @id @default(cuid())
+  name    String
+  color   String
+  boardId String
+  board   Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards   CardLabel[]
+}
+
+model CardLabel {
+  cardId  String
+  labelId String
+  card    Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  label   Label  @relation(fields: [labelId], references: [id], onDelete: Cascade)
+  @@id([cardId, labelId])
+}
+
+model ChecklistItem {
+  id        String   @id @default(cuid())
+  content   String
+  completed Boolean  @default(false)
+  cardId    String
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  position  Int
+  createdAt DateTime @default(now())
+}

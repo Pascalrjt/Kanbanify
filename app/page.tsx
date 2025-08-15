@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState, useRef } from "react"
+import { useBoardStore } from "@/store/boardStore"
 import {
   Plus,
   MoreHorizontal,
@@ -36,33 +37,16 @@ import {
   useSensor,
   useSensors,
   closestCorners,
+  useDroppable,
 } from "@dnd-kit/core"
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { Card as CardType, List as ListType, TeamMember } from "@/types"
+import { CardDetailModal } from "@/components/modals/CardDetailModal"
+import { TeamMemberManager } from "@/components/board/TeamMemberManager"
+import { BoardManager } from "@/components/board/BoardManager"
 
-interface Assignee {
-  id: string
-  name: string
-  avatar?: string
-}
-
-interface CardData {
-  id: string
-  title: string
-  description: string
-  assignees: Assignee[]
-  dueDate: string
-  priority: string
-  listId: string
-}
-
-interface ListData {
-  id: string
-  title: string
-  cards: CardData[]
-}
-
-function DraggableCard({ card }: { card: CardData }) {
+function DraggableCard({ card, onCardClick }: { card: CardType; onCardClick: (card: CardType) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id })
 
   const style = {
@@ -90,29 +74,36 @@ function DraggableCard({ card }: { card: CardData }) {
       {...attributes}
       {...listeners}
       className={`p-4 cursor-grab hover:shadow-md transition-shadow ${isDragging ? "opacity-50" : ""}`}
+      onClick={(e) => {
+        // Only trigger card click if not dragging
+        if (!isDragging && e.detail === 1) {
+          onCardClick(card)
+        }
+      }}
     >
       <div className="space-y-3">
         <h3 className="font-medium text-card-foreground font-heading">{card.title}</h3>
         <p className="text-sm text-muted-foreground line-clamp-2">{card.description}</p>
         <div className="flex items-center gap-2">
-          <span className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(card.priority)}`}>
-            {card.priority}
+          <span className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(card.priority || 'medium')}`}>
+            {card.priority || 'medium'}
           </span>
-          <span className="text-xs text-muted-foreground">Due: {new Date(card.dueDate).toLocaleDateString()}</span>
+          {card.dueDate && (
+            <span className="text-xs text-muted-foreground">Due: {new Date(card.dueDate).toLocaleDateString()}</span>
+          )}
         </div>
         <div className="flex items-center justify-between">
           <div className="flex -space-x-2">
-            {card.assignees.map((assignee) => (
-              <Avatar key={assignee.id} className="h-8 w-8 border-2 border-background">
-                <AvatarImage src={assignee.avatar || "/placeholder.svg"} alt={assignee.name} />
-                <AvatarFallback className="text-xs">
-                  {assignee.name
+            {card.assignees?.map((assignment) => (
+              <Avatar key={assignment.teamMemberId} className="h-8 w-8 border-2 border-background">
+                <AvatarFallback className="text-xs" style={{ backgroundColor: assignment.teamMember?.color }}>
+                  {assignment.teamMember?.name
                     .split(" ")
                     .map((n) => n[0])
-                    .join("")}
+                    .join("") || '?'}
                 </AvatarFallback>
               </Avatar>
-            ))}
+            )) || []}
           </div>
         </div>
       </div>
@@ -120,7 +111,31 @@ function DraggableCard({ card }: { card: CardData }) {
   )
 }
 
-function DroppableList({ list }: { list: ListData }) {
+function DroppableList({ list, onCardClick }: { list: ListType & { cards: CardType[] }; onCardClick: (card: CardType) => void }) {
+  const { createCard } = useBoardStore()
+  const [isAddingCard, setIsAddingCard] = useState(false)
+  const [newCardTitle, setNewCardTitle] = useState("")
+  
+  const { isOver, setNodeRef } = useDroppable({
+    id: list.id,
+  })
+
+  const handleAddCard = async () => {
+    if (!newCardTitle.trim()) return
+
+    try {
+      await createCard({
+        title: newCardTitle.trim(),
+        listId: list.id,
+        description: "",
+        priority: "medium",
+      })
+      setNewCardTitle("")
+      setIsAddingCard(false)
+    } catch (error) {
+      console.error("Failed to add card:", error)
+    }
+  }
   return (
     <div className="flex-shrink-0 w-80">
       <div className="flex items-center justify-between mb-4">
@@ -134,112 +149,141 @@ function DroppableList({ list }: { list: ListData }) {
       </div>
 
       <SortableContext items={list.cards.map((card) => card.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-3 min-h-[200px] p-2 rounded-lg border-2 border-dashed border-transparent hover:border-primary/20 transition-colors">
+        <div 
+          ref={setNodeRef}
+          className={`space-y-3 min-h-[200px] p-2 rounded-lg border-2 border-dashed transition-colors ${
+            isOver ? "border-primary bg-primary/5" : "border-transparent hover:border-primary/20"
+          }`}
+        >
           {list.cards.map((card) => (
-            <DraggableCard key={card.id} card={card} />
+            <DraggableCard key={card.id} card={card} onCardClick={onCardClick} />
           ))}
+          {list.cards.length === 0 && !isAddingCard && (
+            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+              Drop cards here or add a new one
+            </div>
+          )}
         </div>
       </SortableContext>
 
-      <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-foreground mt-3">
-        <Plus className="h-4 w-4 mr-2" />
-        Add a card
-      </Button>
+      {isAddingCard ? (
+        <div className="mt-3 space-y-2">
+          <Input
+            value={newCardTitle}
+            onChange={(e) => setNewCardTitle(e.target.value)}
+            placeholder="Enter card title..."
+            className="w-full"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleAddCard()
+              } else if (e.key === "Escape") {
+                setIsAddingCard(false)
+                setNewCardTitle("")
+              }
+            }}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleAddCard} disabled={!newCardTitle.trim()}>
+              Add Card
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setIsAddingCard(false)
+                setNewCardTitle("")
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start text-muted-foreground hover:text-foreground mt-3"
+          onClick={() => setIsAddingCard(true)}
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Add a card
+        </Button>
+      )}
     </div>
   )
 }
 
 export default function KanbanBoard() {
-  const [lists, setLists] = useState<ListData[]>([
-    {
-      id: "1",
-      title: "To Do",
-      cards: [
-        {
-          id: "1",
-          title: "Design new landing page",
-          description: "Create wireframes and mockups for the new homepage",
-          assignees: [
-            { id: "1", name: "Alice Johnson", avatar: "/diverse-woman-portrait.png" },
-            { id: "2", name: "Bob Smith", avatar: "/thoughtful-man.png" },
-          ],
-          dueDate: "2024-01-15",
-          priority: "high",
-          listId: "1",
-        },
-        {
-          id: "2",
-          title: "Update documentation",
-          description: "Review and update API documentation",
-          assignees: [{ id: "3", name: "Carol Davis", avatar: "/professional-woman.png" }],
-          dueDate: "2024-01-20",
-          priority: "medium",
-          listId: "1",
-        },
-      ],
-    },
-    {
-      id: "2",
-      title: "In Progress",
-      cards: [
-        {
-          id: "3",
-          title: "Implement user authentication",
-          description: "Set up OAuth and session management",
-          assignees: [{ id: "4", name: "David Wilson", avatar: "/man-developer.png" }],
-          dueDate: "2024-01-18",
-          priority: "high",
-          listId: "2",
-        },
-      ],
-    },
-    {
-      id: "3",
-      title: "Review",
-      cards: [
-        {
-          id: "4",
-          title: "Code review for payment system",
-          description: "Review pull request for Stripe integration",
-          assignees: [
-            { id: "1", name: "Alice Johnson", avatar: "/diverse-woman-portrait.png" },
-            { id: "5", name: "Eve Brown", avatar: "/woman-manager.png" },
-          ],
-          dueDate: "2024-01-16",
-          priority: "high",
-          listId: "3",
-        },
-      ],
-    },
-    {
-      id: "4",
-      title: "Done",
-      cards: [
-        {
-          id: "5",
-          title: "Set up CI/CD pipeline",
-          description: "Configure GitHub Actions for automated testing",
-          assignees: [{ id: "4", name: "David Wilson", avatar: "/man-developer.png" }],
-          dueDate: "2024-01-10",
-          priority: "medium",
-          listId: "4",
-        },
-      ],
-    },
-  ])
+  const {
+    currentBoard,
+    lists,
+    cards,
+    teamMembers,
+    boards,
+    isLoading,
+    error,
+    fetchBoard,
+    fetchBoards,
+    moveCard,
+    createList,
+    setCurrentBoard,
+  } = useBoardStore()
 
-  const [activeCard, setActiveCard] = useState<CardData | null>(null)
-  const [currentBoard, setCurrentBoard] = useState("Website Redesign")
+  const [activeCard, setActiveCard] = useState<CardType | null>(null)
+  const [selectedCard, setSelectedCard] = useState<CardType | null>(null)
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterBy, setFilterBy] = useState("all")
+  const [memberFilter, setMemberFilter] = useState("all")
+  const [isAddingList, setIsAddingList] = useState(false)
+  const [newListTitle, setNewListTitle] = useState("")
+  const initializedRef = useRef(false)
 
-  // Mock boards data
-  const boards = [
-    { id: "1", name: "Website Redesign", color: "bg-blue-500", active: true },
-    { id: "2", name: "Mobile App", color: "bg-green-500", active: false },
-    { id: "3", name: "Marketing Campaign", color: "bg-purple-500", active: false },
-  ]
+  // Load initial data
+  useEffect(() => {
+    const initializeApp = async () => {
+      if (!initializedRef.current) {
+        initializedRef.current = true
+        await fetchBoards()
+      }
+    }
+    initializeApp()
+  }, [])
+
+  // Auto-select first board when boards are loaded and no current board is set
+  useEffect(() => {
+    if (!currentBoard && boards.length > 0 && initializedRef.current) {
+      const firstBoard = boards[0]
+      fetchBoard(firstBoard.id)
+    }
+  }, [boards, currentBoard])
+
+  const handleCardClick = (card: CardType) => {
+    setSelectedCard(card)
+    setIsCardModalOpen(true)
+  }
+
+  const handleAddList = async () => {
+    if (!newListTitle.trim() || !currentBoard) return
+
+    try {
+      await createList({
+        title: newListTitle.trim(),
+        boardId: currentBoard.id,
+      })
+      setNewListTitle("")
+      setIsAddingList(false)
+    } catch (error) {
+      console.error("Failed to add list:", error)
+    }
+  }
+
+  // Create lists with associated cards
+  const listsWithCards = lists.map(list => ({
+    ...list,
+    cards: cards.filter(card => card.listId === list.id)
+  }))
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -251,7 +295,7 @@ export default function KanbanBoard() {
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
-    const card = lists.flatMap((list) => list.cards).find((card) => card.id === active.id)
+    const card = cards.find((card) => card.id === active.id)
 
     if (card) {
       setActiveCard(card)
@@ -267,71 +311,49 @@ export default function KanbanBoard() {
     const activeCardId = active.id as string
     const overCardId = over.id as string
 
-    // Find the active card and its current list
-    let activeCard: CardData | undefined
-    let activeListIndex = -1
-    let activeCardIndex = -1
-
-    for (let i = 0; i < lists.length; i++) {
-      const cardIndex = lists[i].cards.findIndex((card) => card.id === activeCardId)
-      if (cardIndex !== -1) {
-        activeCard = lists[i].cards[cardIndex]
-        activeListIndex = i
-        activeCardIndex = cardIndex
-        break
-      }
-    }
-
+    // Find the active card
+    const activeCard = cards.find(card => card.id === activeCardId)
     if (!activeCard) return
 
-    // Find the target list (either by card or by list ID)
-    let targetListIndex = -1
-    let targetCardIndex = -1
+    // Find target list
+    let targetListId = ''
+    let targetPosition = 0
 
-    // Check if we're dropping on another card
-    for (let i = 0; i < lists.length; i++) {
-      const cardIndex = lists[i].cards.findIndex((card) => card.id === overCardId)
-      if (cardIndex !== -1) {
-        targetListIndex = i
-        targetCardIndex = cardIndex
-        break
+    // Check if dropping on another card
+    const targetCard = cards.find(card => card.id === overCardId)
+    if (targetCard) {
+      targetListId = targetCard.listId
+      targetPosition = targetCard.position
+    } else {
+      // Dropping on a list
+      const targetList = lists.find(list => list.id === overCardId)
+      if (targetList) {
+        targetListId = targetList.id
+        const listCards = cards.filter(card => card.listId === targetList.id)
+        targetPosition = listCards.length > 0 ? Math.max(...listCards.map(c => c.position)) + 1000 : 1000
       }
     }
 
-    // If not dropping on a card, check if dropping on a list
-    if (targetListIndex === -1) {
-      targetListIndex = lists.findIndex((list) => list.id === overCardId)
-      targetCardIndex = lists[targetListIndex]?.cards.length || 0
+    if (targetListId && (targetListId !== activeCard.listId || targetPosition !== activeCard.position)) {
+      moveCard({
+        cardId: activeCardId,
+        newListId: targetListId,
+        newPosition: targetPosition
+      })
     }
-
-    if (targetListIndex === -1) return
-
-    // Update the lists state
-    setLists((prevLists) => {
-      const newLists = [...prevLists]
-
-      // Remove card from source list
-      newLists[activeListIndex].cards.splice(activeCardIndex, 1)
-
-      // Update card's listId
-      const updatedCard = { ...activeCard!, listId: newLists[targetListIndex].id }
-
-      // Add card to target list
-      newLists[targetListIndex].cards.splice(targetCardIndex, 0, updatedCard)
-
-      return newLists
-    })
   }
 
-  // Filtered cards based on search and filter
-  const filteredLists = lists.map((list) => ({
+  // Filtered lists based on search and filter
+  const filteredLists = listsWithCards.map((list) => ({
     ...list,
     cards: list.cards.filter((card) => {
       const matchesSearch =
         card.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        card.description.toLowerCase().includes(searchQuery.toLowerCase())
+        (card.description || '').toLowerCase().includes(searchQuery.toLowerCase())
       const matchesFilter = filterBy === "all" || card.priority === filterBy
-      return matchesSearch && matchesFilter
+      const matchesMember = memberFilter === "all" || 
+        card.assignees?.some(assignment => assignment.teamMemberId === memberFilter)
+      return matchesSearch && matchesFilter && matchesMember
     }),
   }))
 
@@ -360,31 +382,34 @@ export default function KanbanBoard() {
         {sidebarOpen && (
           <div className="flex-1 p-4 space-y-4">
             <div>
-              <h3 className="text-sm font-medium text-sidebar-foreground mb-2">Boards</h3>
+              <h3 className="text-sm font-medium text-sidebar-foreground mb-2">Current Board</h3>
               <div className="space-y-1">
-                {boards.map((board) => (
-                  <Button
-                    key={board.id}
-                    variant={board.active ? "secondary" : "ghost"}
-                    className="w-full justify-start text-sm"
-                    onClick={() => setCurrentBoard(board.name)}
-                  >
-                    <div className={`w-3 h-3 rounded-full ${board.color} mr-2`} />
-                    {board.name}
-                  </Button>
-                ))}
+                <div className="p-2 bg-muted rounded-md">
+                  <div className="text-sm font-medium">{currentBoard?.title || 'No board selected'}</div>
+                  {currentBoard?.description && (
+                    <div className="text-xs text-muted-foreground">{currentBoard.description}</div>
+                  )}
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Button variant="ghost" className="w-full justify-start text-sm">
-                <Folder className="h-4 w-4 mr-2" />
-                Templates
-              </Button>
-              <Button variant="ghost" className="w-full justify-start text-sm">
-                <Users className="h-4 w-4 mr-2" />
-                Team Members
-              </Button>
+              <BoardManager 
+                trigger={
+                  <Button variant="ghost" className="w-full justify-start text-sm">
+                    <Folder className="h-4 w-4 mr-2" />
+                    Boards
+                  </Button>
+                }
+              />
+              <TeamMemberManager 
+                trigger={
+                  <Button variant="ghost" className="w-full justify-start text-sm">
+                    <Users className="h-4 w-4 mr-2" />
+                    Team Members
+                  </Button>
+                }
+              />
               <Button variant="ghost" className="w-full justify-start text-sm">
                 <Settings className="h-4 w-4 mr-2" />
                 Settings
@@ -399,9 +424,9 @@ export default function KanbanBoard() {
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-foreground font-heading">{currentBoard}</h1>
+                <h1 className="text-2xl font-bold text-foreground font-heading">{currentBoard?.title || 'Loading...'}</h1>
                 <Badge variant="secondary" className="text-xs">
-                  {lists.reduce((acc, list) => acc + list.cards.length, 0)} cards
+                  {cards.length} cards
                 </Badge>
               </div>
               <div className="relative">
@@ -420,16 +445,50 @@ export default function KanbanBoard() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
                     <Filter className="h-4 w-4 mr-2" />
-                    Filter
+                    Priority
                     <ChevronDown className="h-4 w-4 ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setFilterBy("all")}>All Cards</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setFilterBy("all")}>All Priorities</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setFilterBy("high")}>High Priority</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setFilterBy("medium")}>Medium Priority</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setFilterBy("low")}>Low Priority</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Users className="h-4 w-4 mr-2" />
+                    Member
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setMemberFilter("all")}>All Members</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {teamMembers.map((member) => (
+                    <DropdownMenuItem 
+                      key={member.id} 
+                      onClick={() => setMemberFilter(member.id)}
+                      className="flex items-center gap-2"
+                    >
+                      <Avatar className="h-4 w-4">
+                        <AvatarFallback 
+                          className="text-xs"
+                          style={{ backgroundColor: member.color }}
+                        >
+                          {member.name.split(" ").map((n) => n[0]).join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      {member.name}
+                    </DropdownMenuItem>
+                  ))}
+                  {teamMembers.length === 0 && (
+                    <DropdownMenuItem disabled>No team members</DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -465,7 +524,7 @@ export default function KanbanBoard() {
             <div className="flex items-center text-sm text-muted-foreground">
               <span>Workspace</span>
               <span className="mx-2">/</span>
-              <span className="text-foreground font-medium">{currentBoard}</span>
+              <span className="text-foreground font-medium">{currentBoard?.title || 'Loading...'}</span>
               {searchQuery && (
                 <>
                   <span className="mx-2">/</span>
@@ -483,41 +542,110 @@ export default function KanbanBoard() {
         </header>
 
         <main className="flex-1 p-6">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="flex gap-6 overflow-x-auto pb-6">
-              {filteredLists.map((list) => (
-                <DroppableList key={list.id} list={list} />
-              ))}
-
-              <div className="flex-shrink-0 w-80">
-                <Button
-                  variant="ghost"
-                  className="w-full h-12 border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 backdrop-blur-sm"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add another list
-                </Button>
-              </div>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-muted-foreground">Loading board...</div>
             </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-red-500">Error: {error}</div>
+            </div>
+          ) : boards.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+              <Folder className="h-16 w-16 text-muted-foreground opacity-50" />
+              <div className="text-center space-y-2">
+                <h3 className="text-lg font-medium">No boards found</h3>
+                <p className="text-muted-foreground">Create your first board to get started</p>
+              </div>
+              <BoardManager 
+                trigger={
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create First Board
+                  </Button>
+                }
+              />
+            </div>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCorners}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div className="flex gap-6 overflow-x-auto pb-6">
+                {filteredLists.map((list) => (
+                  <DroppableList key={list.id} list={list} onCardClick={handleCardClick} />
+                ))}
 
-            <DragOverlay>
-              {activeCard ? (
-                <Card className="p-4 rotate-3 shadow-lg">
-                  <div className="space-y-3">
-                    <h3 className="font-medium text-card-foreground font-heading">{activeCard.title}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2">{activeCard.description}</p>
-                  </div>
-                </Card>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+                <div className="flex-shrink-0 w-80">
+                  {isAddingList ? (
+                    <div className="space-y-3 p-3 bg-card rounded-lg border">
+                      <Input
+                        value={newListTitle}
+                        onChange={(e) => setNewListTitle(e.target.value)}
+                        placeholder="Enter list title..."
+                        className="w-full"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleAddList()
+                          } else if (e.key === "Escape") {
+                            setIsAddingList(false)
+                            setNewListTitle("")
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={handleAddList} disabled={!newListTitle.trim()}>
+                          Add List
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setIsAddingList(false)
+                            setNewListTitle("")
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      className="w-full h-12 border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 backdrop-blur-sm"
+                      onClick={() => setIsAddingList(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add another list
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <DragOverlay>
+                {activeCard ? (
+                  <Card className="p-4 rotate-3 shadow-lg">
+                    <div className="space-y-3">
+                      <h3 className="font-medium text-card-foreground font-heading">{activeCard.title}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{activeCard.description}</p>
+                    </div>
+                  </Card>
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          )}
         </main>
       </div>
+
+      {/* Card Detail Modal */}
+      <CardDetailModal
+        card={selectedCard}
+        open={isCardModalOpen}
+        onOpenChange={setIsCardModalOpen}
+      />
     </div>
   )
 }
