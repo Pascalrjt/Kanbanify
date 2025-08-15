@@ -380,11 +380,16 @@ export default function KanbanBoard() {
     initializeApp()
   }, [])
 
-  // Auto-select first board when boards are loaded and no current board is set
+  // Auto-select board based on localStorage or fallback to first board
   useEffect(() => {
     if (!currentBoard && boards.length > 0 && initializedRef.current) {
-      const firstBoard = boards[0]
-      fetchBoard(firstBoard.id)
+      // Try to restore the last selected board from localStorage
+      const lastBoardId = localStorage.getItem('kanbanify-current-board-id')
+      const lastBoard = lastBoardId ? boards.find(b => b.id === lastBoardId) : null
+      
+      // Use last board if found, otherwise use the first board
+      const boardToSelect = lastBoard || boards[0]
+      fetchBoard(boardToSelect.id)
     }
   }, [boards, currentBoard])
 

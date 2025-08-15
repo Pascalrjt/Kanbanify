@@ -71,6 +71,11 @@ export const useBoardStore = create<Store>()(
           state.cards = board.lists?.flatMap(list => list.cards) || []
           state.teamMembers = board.members || []
           state.labels = board.labels || []
+          
+          // Persist current board selection to localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('kanbanify-current-board-id', boardId)
+          }
         }
       })
     },
@@ -104,6 +109,11 @@ export const useBoardStore = create<Store>()(
           state.labels = board.labels || []
           state.isLoading = false
           state.error = null
+          
+          // Persist current board selection to localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('kanbanify-current-board-id', boardId)
+          }
         })
       } catch (error) {
         set((state) => {
@@ -166,6 +176,11 @@ export const useBoardStore = create<Store>()(
             state.cards = []
             state.teamMembers = []
             state.labels = []
+            
+            // Clear localStorage if current board was deleted
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('kanbanify-current-board-id')
+            }
           }
         })
       } catch (error) {
