@@ -18,6 +18,7 @@ import {
   Edit,
   Trash2,
   Archive,
+  CheckSquare,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -78,6 +79,12 @@ function DraggableCard({ card, onCardClick }: { card: CardType; onCardClick: (ca
     }
   }
 
+  // Calculate checklist progress
+  const checklist = card.checklist || []
+  const completedItems = checklist.filter(item => item.completed).length
+  const totalItems = checklist.length
+  const hasChecklist = totalItems > 0
+
   return (
     <Card
       ref={setNodeRef}
@@ -95,6 +102,25 @@ function DraggableCard({ card, onCardClick }: { card: CardType; onCardClick: (ca
       <div className="space-y-3">
         <h3 className="font-medium text-card-foreground font-heading">{card.title}</h3>
         <p className="text-sm text-muted-foreground line-clamp-2">{card.description}</p>
+        
+        {/* Checklist progress */}
+        {hasChecklist && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <CheckSquare className="h-3 w-3" />
+            <span>
+              {completedItems}/{totalItems} tasks
+            </span>
+            <div className="flex-1 bg-muted rounded-full h-1">
+              <div 
+                className={`h-1 rounded-full transition-all ${
+                  completedItems === totalItems ? 'bg-green-500' : 'bg-blue-500'
+                }`}
+                style={{ width: `${totalItems > 0 ? (completedItems / totalItems) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        )}
+        
         <div className="flex items-center gap-2">
           <span className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(card.priority || 'medium')}`}>
             {card.priority || 'medium'}

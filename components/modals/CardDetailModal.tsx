@@ -43,8 +43,11 @@ interface CardDetailModalProps {
   onOpenChange: (open: boolean) => void
 }
 
-export function CardDetailModal({ card, open, onOpenChange }: CardDetailModalProps) {
-  const { updateCard, deleteCard, teamMembers, assignMemberToCard, unassignMemberFromCard } = useBoardStore()
+export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardDetailModalProps) {
+  const { cards, updateCard, deleteCard, teamMembers, assignMemberToCard, unassignMemberFromCard } = useBoardStore()
+  
+  // Get the live card data from the store instead of using the prop
+  const card = initialCard ? cards.find(c => c.id === initialCard.id) || initialCard : null
   
   const [isEditing, setIsEditing] = useState(false)
   const [title, setTitle] = useState("")

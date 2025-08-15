@@ -294,6 +294,18 @@ export const useBoardStore = create<Store>()(
     },
 
     updateCard: async (cardId: string, updates: UpdateCardRequest) => {
+      // Store original values for potential rollback
+      let originalCard: any = null
+      
+      // Optimistic update
+      set((state) => {
+        const index = state.cards.findIndex(c => c.id === cardId)
+        if (index !== -1) {
+          originalCard = { ...state.cards[index] }
+          Object.assign(state.cards[index], updates)
+        }
+      })
+
       try {
         const updatedCard = await apiRequest(`/api/cards/${cardId}`, {
           method: 'PUT',
@@ -306,6 +318,16 @@ export const useBoardStore = create<Store>()(
           }
         })
       } catch (error) {
+        // Rollback optimistic update on error
+        if (originalCard) {
+          set((state) => {
+            const index = state.cards.findIndex(c => c.id === cardId)
+            if (index !== -1) {
+              state.cards[index] = originalCard
+            }
+          })
+        }
+        
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to update card'
         })
@@ -403,28 +425,77 @@ export const useBoardStore = create<Store>()(
 
     // Assignment actions
     assignMemberToCard: async (cardId: string, memberId: string) => {
+      // Get team member info for optimistic update
+      const teamMember = get().teamMembers.find(m => m.id === memberId)
+      if (!teamMember) return
+
+      // Optimistic update
+      set((state) => {
+        const cardIndex = state.cards.findIndex(c => c.id === cardId)
+        if (cardIndex !== -1) {
+          state.cards[cardIndex].assignees = state.cards[cardIndex].assignees || []
+          state.cards[cardIndex].assignees.push({
+            cardId,
+            teamMemberId: memberId,
+            teamMember,
+            assignedAt: new Date()
+          })
+        }
+      })
+
       try {
         await apiRequest(`/api/cards/${cardId}/assignments`, {
           method: 'POST',
           body: JSON.stringify({ teamMemberId: memberId }),
         })
-        // Refresh the card data
-        get().fetchBoard(get().currentBoard?.id || '')
       } catch (error) {
+        // Rollback optimistic update on error
         set((state) => {
+          const cardIndex = state.cards.findIndex(c => c.id === cardId)
+          if (cardIndex !== -1 && state.cards[cardIndex].assignees) {
+            state.cards[cardIndex].assignees = state.cards[cardIndex].assignees.filter(
+              assignment => assignment.teamMemberId !== memberId
+            )
+          }
           state.error = error instanceof Error ? error.message : 'Failed to assign member'
         })
       }
     },
 
     unassignMemberFromCard: async (cardId: string, memberId: string) => {
+      // Store assignment for potential rollback
+      let originalAssignment: any = null
+
+      // Optimistic update
+      set((state) => {
+        const cardIndex = state.cards.findIndex(c => c.id === cardId)
+        if (cardIndex !== -1 && state.cards[cardIndex].assignees) {
+          const assignmentIndex = state.cards[cardIndex].assignees.findIndex(
+            assignment => assignment.teamMemberId === memberId
+          )
+          if (assignmentIndex !== -1) {
+            originalAssignment = state.cards[cardIndex].assignees[assignmentIndex]
+            state.cards[cardIndex].assignees.splice(assignmentIndex, 1)
+          }
+        }
+      })
+
       try {
         await apiRequest(`/api/cards/${cardId}/assignments?teamMemberId=${memberId}`, {
           method: 'DELETE',
         })
-        // Refresh the card data
-        get().fetchBoard(get().currentBoard?.id || '')
       } catch (error) {
+        // Rollback optimistic update on error
+        if (originalAssignment) {
+          set((state) => {
+            const cardIndex = state.cards.findIndex(c => c.id === cardId)
+            if (cardIndex !== -1) {
+              state.cards[cardIndex].assignees = state.cards[cardIndex].assignees || []
+              state.cards[cardIndex].assignees.push(originalAssignment)
+            }
+          })
+        }
+        
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to unassign member'
         })
@@ -459,29 +530,87 @@ export const useBoardStore = create<Store>()(
 
     // Checklist actions
     createChecklistItem: async (itemData) => {
+      // Generate temporary ID for optimistic update
+      const tempId = `temp-${Date.now()}`
+      const optimisticItem = {
+        ...itemData,
+        id: tempId,
+        createdAt: new Date(),
+      }
+
+      // Optimistic update
+      set((state) => {
+        const cardIndex = state.cards.findIndex(c => c.id === itemData.cardId)
+        if (cardIndex !== -1) {
+          state.cards[cardIndex].checklist = state.cards[cardIndex].checklist || []
+          state.cards[cardIndex].checklist.push(optimisticItem)
+        }
+      })
+
       try {
         const newItem = await apiRequest('/api/checklist', {
           method: 'POST',
           body: JSON.stringify(itemData),
         })
-        // Refresh the board to get updated card data
-        get().fetchBoard(get().currentBoard?.id || '')
-      } catch (error) {
+        
+        // Replace optimistic item with real data
         set((state) => {
+          const cardIndex = state.cards.findIndex(c => c.id === itemData.cardId)
+          if (cardIndex !== -1) {
+            const checklistIndex = state.cards[cardIndex].checklist?.findIndex(item => item.id === tempId)
+            if (checklistIndex !== undefined && checklistIndex !== -1 && state.cards[cardIndex].checklist) {
+              state.cards[cardIndex].checklist[checklistIndex] = newItem
+            }
+          }
+        })
+      } catch (error) {
+        // Remove optimistic item on error
+        set((state) => {
+          const cardIndex = state.cards.findIndex(c => c.id === itemData.cardId)
+          if (cardIndex !== -1 && state.cards[cardIndex].checklist) {
+            state.cards[cardIndex].checklist = state.cards[cardIndex].checklist.filter(item => item.id !== tempId)
+          }
           state.error = error instanceof Error ? error.message : 'Failed to create checklist item'
         })
       }
     },
 
     updateChecklistItem: async (itemId: string, updates) => {
+      // Store original values for potential rollback
+      let originalItem: any = null
+      let cardIndex = -1
+      let checklistIndex = -1
+
+      // Optimistic update
+      set((state) => {
+        cardIndex = state.cards.findIndex(card => 
+          card.checklist?.some(item => item.id === itemId)
+        )
+        
+        if (cardIndex !== -1 && state.cards[cardIndex].checklist) {
+          checklistIndex = state.cards[cardIndex].checklist.findIndex(item => item.id === itemId)
+          if (checklistIndex !== -1) {
+            originalItem = { ...state.cards[cardIndex].checklist[checklistIndex] }
+            Object.assign(state.cards[cardIndex].checklist[checklistIndex], updates)
+          }
+        }
+      })
+
       try {
         await apiRequest(`/api/checklist/${itemId}`, {
           method: 'PUT',
           body: JSON.stringify(updates),
         })
-        // Refresh the board to get updated card data
-        get().fetchBoard(get().currentBoard?.id || '')
       } catch (error) {
+        // Rollback optimistic update on error
+        if (originalItem && cardIndex !== -1 && checklistIndex !== -1) {
+          set((state) => {
+            if (state.cards[cardIndex]?.checklist?.[checklistIndex]) {
+              state.cards[cardIndex].checklist[checklistIndex] = originalItem
+            }
+          })
+        }
+        
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to update checklist item'
         })
@@ -489,11 +618,38 @@ export const useBoardStore = create<Store>()(
     },
 
     deleteChecklistItem: async (itemId: string) => {
+      // Store original values for potential rollback
+      let originalItem: any = null
+      let cardIndex = -1
+      let checklistIndex = -1
+
+      // Optimistic update - remove item
+      set((state) => {
+        cardIndex = state.cards.findIndex(card => 
+          card.checklist?.some(item => item.id === itemId)
+        )
+        
+        if (cardIndex !== -1 && state.cards[cardIndex].checklist) {
+          checklistIndex = state.cards[cardIndex].checklist.findIndex(item => item.id === itemId)
+          if (checklistIndex !== -1) {
+            originalItem = { ...state.cards[cardIndex].checklist[checklistIndex] }
+            state.cards[cardIndex].checklist.splice(checklistIndex, 1)
+          }
+        }
+      })
+
       try {
         await apiRequest(`/api/checklist/${itemId}`, { method: 'DELETE' })
-        // Refresh the board to get updated card data
-        get().fetchBoard(get().currentBoard?.id || '')
       } catch (error) {
+        // Rollback optimistic update on error
+        if (originalItem && cardIndex !== -1 && checklistIndex !== -1) {
+          set((state) => {
+            if (state.cards[cardIndex]?.checklist) {
+              state.cards[cardIndex].checklist.splice(checklistIndex, 0, originalItem)
+            }
+          })
+        }
+        
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to delete checklist item'
         })

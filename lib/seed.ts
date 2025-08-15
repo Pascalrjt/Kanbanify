@@ -109,6 +109,14 @@ export async function seedDatabase() {
               { teamMemberId: teamMembers[1].id },
             ],
           },
+          checklist: {
+            create: [
+              { content: 'Create wireframes', completed: true, position: 1000 },
+              { content: 'Design mockups', completed: true, position: 2000 },
+              { content: 'Review with stakeholders', completed: false, position: 3000 },
+              { content: 'Finalize design system', completed: false, position: 4000 },
+            ],
+          },
         },
       }),
       prisma.card.create({
@@ -121,6 +129,13 @@ export async function seedDatabase() {
           listId: lists[0].id,
           assignees: {
             create: [{ teamMemberId: teamMembers[2].id }],
+          },
+          checklist: {
+            create: [
+              { content: 'Review existing docs', completed: true, position: 1000 },
+              { content: 'Update API endpoints', completed: false, position: 2000 },
+              { content: 'Add examples', completed: false, position: 3000 },
+            ],
           },
         },
       }),
@@ -135,6 +150,15 @@ export async function seedDatabase() {
           listId: lists[1].id,
           assignees: {
             create: [{ teamMemberId: teamMembers[3].id }],
+          },
+          checklist: {
+            create: [
+              { content: 'Set up OAuth provider', completed: true, position: 1000 },
+              { content: 'Implement login flow', completed: true, position: 2000 },
+              { content: 'Add session management', completed: true, position: 3000 },
+              { content: 'Write unit tests', completed: false, position: 4000 },
+              { content: 'Update user interface', completed: false, position: 5000 },
+            ],
           },
         },
       }),
@@ -166,6 +190,13 @@ export async function seedDatabase() {
           listId: lists[3].id,
           assignees: {
             create: [{ teamMemberId: teamMembers[3].id }],
+          },
+          checklist: {
+            create: [
+              { content: 'Configure GitHub Actions', completed: true, position: 1000 },
+              { content: 'Set up automated testing', completed: true, position: 2000 },
+              { content: 'Configure deployment pipeline', completed: true, position: 3000 },
+            ],
           },
         },
       }),

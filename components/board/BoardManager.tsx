@@ -266,7 +266,7 @@ export function BoardManager({ trigger }: BoardManagerProps) {
               <div
                 className="
                   grid
-                  grid-cols-[repeat(auto-fit,minmax(320px,420px))]
+                  grid-cols-[repeat(auto-fit,minmax(320px,400px))]
                   gap-6
                 "
               >
