@@ -16,8 +16,18 @@ import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -43,12 +53,25 @@ interface CardDetailModalProps {
   onOpenChange: (open: boolean) => void
 }
 
-export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardDetailModalProps) {
-  const { cards, updateCard, deleteCard, teamMembers, assignMemberToCard, unassignMemberFromCard } = useBoardStore()
-  
+export function CardDetailModal({
+  card: initialCard,
+  open,
+  onOpenChange,
+}: CardDetailModalProps) {
+  const {
+    cards,
+    updateCard,
+    deleteCard,
+    teamMembers,
+    assignMemberToCard,
+    unassignMemberFromCard,
+  } = useBoardStore()
+
   // Get the live card data from the store instead of using the prop
-  const card = initialCard ? cards.find(c => c.id === initialCard.id) || initialCard : null
-  
+  const card = initialCard
+    ? cards.find((c) => c.id === initialCard.id) || initialCard
+    : null
+
   const [isEditing, setIsEditing] = useState(false)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -96,12 +119,14 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
     }
   }
 
-  const assignedMemberIds = card.assignees?.map(a => a.teamMemberId) || []
-  const availableMembers = teamMembers.filter(member => !assignedMemberIds.includes(member.id))
+  const assignedMemberIds = card.assignees?.map((a) => a.teamMemberId) || []
+  const availableMembers = teamMembers.filter(
+    (member) => !assignedMemberIds.includes(member.id)
+  )
 
   const handleSave = async () => {
     if (!card.id) return
-    
+
     setIsSaving(true)
     try {
       await updateCard(card.id, {
@@ -120,7 +145,7 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
 
   const handleDelete = async () => {
     if (!card.id) return
-    
+
     try {
       await deleteCard(card.id)
       onOpenChange(false)
@@ -131,7 +156,7 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
 
   const handleAssignMember = async (memberId: string) => {
     if (!card.id) return
-    
+
     try {
       await assignMemberToCard(card.id, memberId)
       setIsAssigneeMenuOpen(false)
@@ -142,7 +167,7 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
 
   const handleUnassignMember = async (memberId: string) => {
     if (!card.id) return
-    
+
     try {
       await unassignMemberFromCard(card.id, memberId)
     } catch (error) {
@@ -152,9 +177,11 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent
+        className="w-[95vw] max-w-6xl max-h-[90vh] overflow-y-auto overflow-x-hidden"
+      >
+        <DialogHeader className="min-w-0">
+          <DialogTitle className="flex items-center gap-2 min-w-0">
             {isEditing ? (
               <Input
                 value={title}
@@ -163,11 +190,15 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
                 placeholder="Card title..."
               />
             ) : (
-              <span className="text-lg font-semibold">{card.title}</span>
+              <span className="text-lg font-semibold truncate">{card.title}</span>
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {!isEditing && (
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditing(true)}
+                >
                   Edit
                 </Button>
               )}
@@ -180,17 +211,17 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
                       setIsEditing(false)
                       setTitle(card.title)
                       setDescription(card.description || "")
-                      setPriority(card.priority as "low" | "medium" | "high")
-                      setDueDate(card.dueDate ? new Date(card.dueDate) : undefined)
+                      setPriority(
+                        (card.priority as "low" | "medium" | "high") ?? "medium"
+                      )
+                      setDueDate(
+                        card.dueDate ? new Date(card.dueDate) : undefined
+                      )
                     }}
                   >
                     <X className="h-4 w-4" />
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                  >
+                  <Button size="sm" onClick={handleSave} disabled={isSaving}>
                     <Save className="h-4 w-4 mr-1" />
                     {isSaving ? "Saving..." : "Save"}
                   </Button>
@@ -198,14 +229,15 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
               )}
             </div>
           </DialogTitle>
-          <DialogDescription>
-            View and edit card details, including description, priority, due date, assignees, and checklist items.
+          <DialogDescription className="truncate">
+            View and edit card details, including description, priority, due
+            date, assignees, and checklist items.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Main Content */}
-          <div className="md:col-span-2 space-y-6">
+          <div className="md:col-span-2 space-y-6 min-w-0">
             {/* Priority */}
             <div className="space-y-2">
               <Label className="text-sm font-medium flex items-center gap-2">
@@ -213,7 +245,12 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
                 Priority
               </Label>
               {isEditing ? (
-                <Select value={priority} onValueChange={(value: "low" | "medium" | "high") => setPriority(value)}>
+                <Select
+                  value={priority}
+                  onValueChange={(value: "low" | "medium" | "high") =>
+                    setPriority(value)
+                  }
+                >
                   <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
@@ -224,15 +261,21 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
                   </SelectContent>
                 </Select>
               ) : (
-                <Badge className={`text-xs ${getPriorityColor(card.priority || 'medium')} w-fit`}>
-                  {getPriorityIcon(card.priority || 'medium')}
-                  <span className="ml-1 capitalize">{card.priority || 'medium'}</span>
+                <Badge
+                  className={`text-xs ${getPriorityColor(
+                    card.priority || "medium"
+                  )} w-fit`}
+                >
+                  {getPriorityIcon(card.priority || "medium")}
+                  <span className="ml-1 capitalize">
+                    {card.priority || "medium"}
+                  </span>
                 </Badge>
               )}
             </div>
 
             {/* Description */}
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label className="text-sm font-medium">Description</Label>
               {isEditing ? (
                 <Textarea
@@ -244,13 +287,13 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
               ) : (
                 <div className="border rounded-md p-3 min-h-32 bg-muted/20">
                   {description ? (
-                    <div className="prose prose-sm max-w-none">
-                      <ReactMarkdown>
-                        {description}
-                      </ReactMarkdown>
+                    <div className="prose prose-sm max-w-none break-words">
+                      <ReactMarkdown>{description}</ReactMarkdown>
                     </div>
                   ) : (
-                    <span className="text-muted-foreground italic">No description</span>
+                    <span className="text-muted-foreground italic">
+                      No description
+                    </span>
                   )}
                 </div>
               )}
@@ -273,9 +316,9 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             {/* Due Date */}
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <CalendarIcon className="h-4 w-4" />
                 Due Date
@@ -283,12 +326,22 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
               {isEditing ? (
                 <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dueDate ? format(dueDate, "PPP") : "Set due date"}
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal min-w-0"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                      <span className="truncate">
+                        {dueDate ? format(dueDate, "PPP") : "Set due date"}
+                      </span>
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent
+                    className="w-auto p-0"
+                    align="start"
+                    sideOffset={8}
+                    collisionPadding={8}
+                  >
                     <Calendar
                       mode="single"
                       selected={dueDate}
@@ -301,11 +354,15 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
                   </PopoverContent>
                 </Popover>
               ) : (
-                <div className="text-sm">
+                <div className="text-sm min-w-0">
                   {card.dueDate ? (
-                    <span>{format(new Date(card.dueDate), "PPP")}</span>
+                    <span className="truncate block">
+                      {format(new Date(card.dueDate), "PPP")}
+                    </span>
                   ) : (
-                    <span className="text-muted-foreground italic">No due date</span>
+                    <span className="text-muted-foreground italic">
+                      No due date
+                    </span>
                   )}
                 </div>
               )}
@@ -314,19 +371,24 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
             <Separator />
 
             {/* Assignees */}
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <Label className="text-sm font-medium flex items-center gap-2">
                 <Users className="h-4 w-4" />
                 Assignees
               </Label>
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-0">
                 {card.assignees?.map((assignment) => (
-                  <div key={assignment.teamMemberId} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback 
+                  <div
+                    key={assignment.teamMemberId}
+                    className="flex items-center justify-between min-w-0"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar className="h-6 w-6 shrink-0">
+                        <AvatarFallback
                           className="text-xs"
-                          style={{ backgroundColor: assignment.teamMember?.color }}
+                          style={{
+                            backgroundColor: assignment.teamMember?.color,
+                          }}
                         >
                           {assignment.teamMember?.name
                             .split(" ")
@@ -334,29 +396,36 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
                             .join("") || "?"}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm">{assignment.teamMember?.name}</span>
+                      <span className="text-sm truncate">
+                        {assignment.teamMember?.name}
+                      </span>
                     </div>
                     {isEditing && (
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleUnassignMember(assignment.teamMemberId)}
+                        onClick={() =>
+                          handleUnassignMember(assignment.teamMemberId)
+                        }
                       >
                         <X className="h-3 w-3" />
                       </Button>
                     )}
                   </div>
                 ))}
-                
+
                 {isEditing && availableMembers.length > 0 && (
-                  <Popover open={isAssigneeMenuOpen} onOpenChange={setIsAssigneeMenuOpen}>
+                  <Popover
+                    open={isAssigneeMenuOpen}
+                    onOpenChange={setIsAssigneeMenuOpen}
+                  >
                     <PopoverTrigger asChild>
                       <Button variant="outline" size="sm" className="w-full">
                         <Plus className="h-4 w-4 mr-1" />
                         Add assignee
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-48 p-0">
+                    <PopoverContent className="w-48 p-0" collisionPadding={8}>
                       <div className="max-h-48 overflow-y-auto">
                         {availableMembers.map((member) => (
                           <Button
@@ -365,8 +434,8 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
                             className="w-full justify-start p-2"
                             onClick={() => handleAssignMember(member.id)}
                           >
-                            <Avatar className="h-6 w-6 mr-2">
-                              <AvatarFallback 
+                            <Avatar className="h-6 w-6 mr-2 shrink-0">
+                              <AvatarFallback
                                 className="text-xs"
                                 style={{ backgroundColor: member.color }}
                               >
@@ -376,16 +445,18 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
                                   .join("")}
                               </AvatarFallback>
                             </Avatar>
-                            {member.name}
+                            <span className="truncate">{member.name}</span>
                           </Button>
                         ))}
                       </div>
                     </PopoverContent>
                   </Popover>
                 )}
-                
+
                 {card.assignees?.length === 0 && !isEditing && (
-                  <span className="text-muted-foreground italic text-sm">No assignees</span>
+                  <span className="text-muted-foreground italic text-sm">
+                    No assignees
+                  </span>
                 )}
               </div>
             </div>
