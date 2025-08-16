@@ -162,7 +162,7 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-6xl sm:max-w-6xl md:max-w-6xl lg:max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {isEditing ? (
@@ -291,31 +291,94 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
                 Due Date
               </Label>
               {isEditing ? (
-                <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal min-h-10 h-auto whitespace-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
-                      <span className="truncate">
-                        {dueDate ? format(dueDate, "PPP") : "Set due date"}
-                      </span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start" sideOffset={8}>
-                    <Calendar
-                      mode="single"
-                      selected={dueDate}
-                      onSelect={(date) => {
-                        setDueDate(date)
-                        setIsCalendarOpen(false)
-                      }}
-                      autoFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <div className="space-y-3">
+                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-left font-normal min-h-10 h-auto whitespace-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">
+                          {dueDate ? format(dueDate, "PPP") : "Set due date"}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start" sideOffset={8}>
+                      <Calendar
+                        mode="single"
+                        selected={dueDate}
+                        onSelect={(date) => {
+                          if (date) {
+                            // Preserve existing time when changing date
+                            const newDate = new Date(date)
+                            if (dueDate) {
+                              newDate.setHours(dueDate.getHours())
+                              newDate.setMinutes(dueDate.getMinutes())
+                            } else {
+                              // Default to 9:00 AM if no time was set
+                              newDate.setHours(9, 0)
+                            }
+                            setDueDate(newDate)
+                          } else {
+                            setDueDate(undefined)
+                          }
+                          setIsCalendarOpen(false)
+                        }}
+                        autoFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  
+                  {dueDate && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-muted-foreground">Time</Label>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="23"
+                            value={dueDate.getHours()}
+                            onChange={(e) => {
+                              const hours = parseInt(e.target.value) || 0
+                              const newDate = new Date(dueDate)
+                              newDate.setHours(Math.max(0, Math.min(23, hours)))
+                              setDueDate(newDate)
+                            }}
+                            className="w-16 text-center"
+                            placeholder="HH"
+                          />
+                          <span className="text-muted-foreground">:</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="59"
+                            value={dueDate.getMinutes().toString().padStart(2, '0')}
+                            onChange={(e) => {
+                              const minutes = parseInt(e.target.value) || 0
+                              const newDate = new Date(dueDate)
+                              newDate.setMinutes(Math.max(0, Math.min(59, minutes)))
+                              setDueDate(newDate)
+                            }}
+                            className="w-16 text-center"
+                            placeholder="MM"
+                          />
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setDueDate(undefined)
+                          }}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="text-sm break-words">
                   {card.dueDate ? (
-                    <span className="break-words">{format(new Date(card.dueDate), "PPP")}</span>
+                    <span className="break-words">{format(new Date(card.dueDate), "PPP 'at' p")}</span>
                   ) : (
                     <span className="text-muted-foreground italic">No due date</span>
                   )}
