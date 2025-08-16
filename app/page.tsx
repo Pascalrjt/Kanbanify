@@ -68,6 +68,7 @@ import { BoardManager } from "@/components/board/BoardManager"
 import { BoardAccessGate } from "@/components/auth/BoardAccessGate"
 import { AdminLogin } from "@/components/auth/AdminLogin"
 import { BoardAccessModal } from "@/components/modals/BoardAccessModal"
+import { CalendarView } from "@/components/calendar/CalendarView"
 import { isAdminSession, logoutAdmin } from "@/lib/auth"
 import { getBoardAccess } from "@/lib/boardAccess"
 
@@ -173,7 +174,7 @@ function DraggableCard({ card, onCardClick }: { card: CardType; onCardClick: (ca
   )
 }
 
-function SortableList({ list, onCardClick }: { list: ListType & { cards: CardType[] }; onCardClick: (card: CardType) => void }) {
+function SortableList({ list, onCardClick, isCalendarView = false }: { list: ListType & { cards: CardType[] }; onCardClick: (card: CardType) => void; isCalendarView?: boolean }) {
   const { 
     attributes, 
     listeners, 
@@ -205,6 +206,7 @@ function SortableList({ list, onCardClick }: { list: ListType & { cards: CardTyp
         list={list} 
         onCardClick={onCardClick}
         dragHandleProps={{ ...attributes, ...listeners }}
+        isCalendarView={isCalendarView}
       />
     </div>
   )
@@ -213,11 +215,13 @@ function SortableList({ list, onCardClick }: { list: ListType & { cards: CardTyp
 function DroppableList({ 
   list, 
   onCardClick, 
-  dragHandleProps 
+  dragHandleProps,
+  isCalendarView = false
 }: { 
   list: ListType & { cards: CardType[] }; 
   onCardClick: (card: CardType) => void;
   dragHandleProps?: any;
+  isCalendarView?: boolean;
 }) {
   const { createCard, updateList, deleteList } = useBoardStore()
   const [isAddingCard, setIsAddingCard] = useState(false)
@@ -277,7 +281,11 @@ function DroppableList({
   }
   return (
     <div 
-      className="flex-shrink-0 w-80 rounded-lg p-3 border" 
+      className={`flex-shrink-0 rounded-lg p-3 border ${
+        isCalendarView 
+          ? "w-64 lg:w-56 xl:w-64" 
+          : "w-80"
+      }`} 
       style={{ backgroundColor: list.color || "#f1f5f9" }}
     >
       <div className="flex items-center justify-between mb-4">
@@ -481,6 +489,7 @@ export default function KanbanBoard() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [showAdminLogin, setShowAdminLogin] = useState(false)
   const [showBoardAccessModal, setShowBoardAccessModal] = useState(false)
+  const [showCalendarView, setShowCalendarView] = useState(false)
   const initializedRef = useRef(false)
 
   // Check admin status on mount
@@ -891,9 +900,14 @@ export default function KanbanBoard() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="outline" size="sm" disabled={!currentBoard}>
+              <Button 
+                variant={showCalendarView ? "default" : "outline"}
+                size="sm" 
+                disabled={!currentBoard}
+                onClick={() => setShowCalendarView(!showCalendarView)}
+              >
                 <Calendar className="h-4 w-4 mr-2" />
-                Calendar
+                {showCalendarView ? "Hide Calendar" : "Show Calendar"}
               </Button>
 
               <Button variant="ghost" size="icon">
@@ -953,7 +967,7 @@ export default function KanbanBoard() {
           </div>
         </header>
 
-        <main className="flex-1 p-6">
+        <main className={`flex-1 ${showCalendarView ? 'flex flex-col lg:flex-row' : 'p-6'}`}>
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-muted-foreground">Loading board...</div>
@@ -1013,91 +1027,114 @@ export default function KanbanBoard() {
             </div>
           ) : currentBoard && (isAdminSession() || getBoardAccess().includes(currentBoard.id)) ? (
             <BoardAccessGate boardId={currentBoard.id}>
-              <DndContext
-                sensors={sensors}
-                collisionDetection={customCollisionDetection}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-              >
-              <SortableContext items={filteredLists.map(list => list.id)} strategy={horizontalListSortingStrategy}>
-                <div className="flex gap-6 overflow-x-auto pb-6">
-                  {filteredLists.map((list) => (
-                    <SortableList key={list.id} list={list} onCardClick={handleCardClick} />
-                  ))}
+              <>
+                {/* Board Content - 60% Width */}
+                <div className={
+                  showCalendarView 
+                    ? "hidden lg:block lg:w-[60%] lg:p-4 lg:border-r border-border min-h-0 overflow-hidden" 
+                    : "w-full p-6"
+                }>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={customCollisionDetection}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                  >
+                  <SortableContext items={filteredLists.map(list => list.id)} strategy={horizontalListSortingStrategy}>
+                    <div className={`flex gap-4 lg:gap-6 overflow-x-auto pb-6 ${showCalendarView ? 'lg:gap-3' : ''}`}>
+                      {filteredLists.map((list) => (
+                        <SortableList key={list.id} list={list} onCardClick={handleCardClick} isCalendarView={showCalendarView} />
+                      ))}
 
-                  <div className="flex-shrink-0 w-80">
-                  {isAddingList ? (
-                    <div className="space-y-3 p-3 bg-card rounded-lg border">
-                      <Input
-                        value={newListTitle}
-                        onChange={(e) => setNewListTitle(e.target.value)}
-                        placeholder="Enter list title..."
-                        className="w-full"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            handleAddList()
-                          } else if (e.key === "Escape") {
-                            setIsAddingList(false)
-                            setNewListTitle("")
-                          }
-                        }}
-                        autoFocus
-                      />
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={handleAddList} disabled={!newListTitle.trim()}>
-                          Add List
-                        </Button>
+                      <div className={`flex-shrink-0 ${showCalendarView ? 'w-64 lg:w-56' : 'w-80'}`}>
+                      {isAddingList ? (
+                        <div className="space-y-3 p-3 bg-card rounded-lg border">
+                          <Input
+                            value={newListTitle}
+                            onChange={(e) => setNewListTitle(e.target.value)}
+                            placeholder="Enter list title..."
+                            className="w-full"
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleAddList()
+                              } else if (e.key === "Escape") {
+                                setIsAddingList(false)
+                                setNewListTitle("")
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={handleAddList} disabled={!newListTitle.trim()}>
+                              Add List
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setIsAddingList(false)
+                                setNewListTitle("")
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
                         <Button
-                          size="sm"
                           variant="ghost"
-                          onClick={() => {
-                            setIsAddingList(false)
-                            setNewListTitle("")
-                          }}
+                          className="w-full h-12 border-2 border-dashed border-border hover:border-primary backdrop-blur-sm"
+                          onClick={() => setIsAddingList(true)}
                         >
-                          Cancel
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add another list
                         </Button>
+                      )}
                       </div>
                     </div>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      className="w-full h-12 border-2 border-dashed border-border hover:border-primary backdrop-blur-sm"
-                      onClick={() => setIsAddingList(true)}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add another list
-                    </Button>
-                  )}
-                  </div>
-                </div>
-              </SortableContext>
+                  </SortableContext>
 
-              <DragOverlay>
-                {activeCard ? (
-                  <Card className="p-4 rotate-3 shadow-lg">
-                    <div className="space-y-3">
-                      <h3 className="font-medium text-card-foreground font-heading">{activeCard.title}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{activeCard.description}</p>
-                    </div>
-                  </Card>
-                ) : activeList ? (
-                  <div className="w-80 bg-background border rounded-lg shadow-lg rotate-3 opacity-90">
-                    <div className="p-4 border-b">
-                      <h3 className="font-semibold text-foreground font-heading flex items-center gap-2">
-                        {activeList.title}
-                        <span className="bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
-                          {listsWithCards.find(l => l.id === activeList.id)?.cards.length || 0}
-                        </span>
-                      </h3>
-                    </div>
-                    <div className="p-4 text-sm text-muted-foreground">
-                      Dragging list...
+                  <DragOverlay>
+                    {activeCard ? (
+                      <Card className="p-4 rotate-3 shadow-lg">
+                        <div className="space-y-3">
+                          <h3 className="font-medium text-card-foreground font-heading">{activeCard.title}</h3>
+                          <p className="text-sm text-muted-foreground line-clamp-2">{activeCard.description}</p>
+                        </div>
+                      </Card>
+                    ) : activeList ? (
+                      <div className="w-80 bg-background border rounded-lg shadow-lg rotate-3 opacity-90">
+                        <div className="p-4 border-b">
+                          <h3 className="font-semibold text-foreground font-heading flex items-center gap-2">
+                            {activeList.title}
+                            <span className="bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
+                              {listsWithCards.find(l => l.id === activeList.id)?.cards.length || 0}
+                            </span>
+                          </h3>
+                        </div>
+                        <div className="p-4 text-sm text-muted-foreground">
+                          Dragging list...
+                        </div>
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
+                </div>
+
+                {/* Calendar Content - 40% Width */}
+                {showCalendarView && (
+                  <div className="w-full lg:w-[40%] p-4 overflow-y-auto min-h-0">
+                    <div className="h-full min-h-[500px] lg:min-h-[600px]">
+                      <div className="lg:hidden mb-4 p-3 bg-muted/50 rounded-lg">
+                        <p className="text-sm text-muted-foreground text-center">
+                          Calendar view. Switch back to see your boards.
+                        </p>
+                      </div>
+                      <CalendarView />
                     </div>
                   </div>
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+                )}
+              </>
             </BoardAccessGate>
           ) : (
             <div className="flex items-center justify-center h-64">
