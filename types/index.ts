@@ -25,6 +25,7 @@ export interface List {
   id: string
   title: string
   position: number
+  color?: string
   boardId: string
   board?: Board
   cards: Card[]
@@ -127,6 +128,7 @@ export interface CreateListRequest {
   title: string
   boardId: string
   position?: number
+  color?: string
 }
 
 export interface CreateBoardRequest {

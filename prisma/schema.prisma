@@ -37,6 +37,7 @@ model List {
   id        String   @id @default(cuid())
   title     String
   position  Int
+  color     String?  @default("#f1f5f9") // Default light gray color
   boardId   String
   board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
   cards     Card[]

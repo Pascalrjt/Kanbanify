@@ -19,6 +19,7 @@ import {
   Trash2,
   Archive,
   CheckSquare,
+  Palette,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -31,6 +32,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import {
   Dialog,
   DialogContent,
@@ -57,6 +63,18 @@ import { Card as CardType, List as ListType, TeamMember } from "@/types"
 import { CardDetailModal } from "@/components/modals/CardDetailModal"
 import { TeamMemberManager } from "@/components/board/TeamMemberManager"
 import { BoardManager } from "@/components/board/BoardManager"
+
+const LIST_COLORS = [
+  "#f1f5f9", // Default light gray
+  "#fef2f2", // Light red
+  "#fef3e2", // Light orange
+  "#fdfde8", // Light yellow
+  "#f0fdf4", // Light green
+  "#f0f9ff", // Light blue
+  "#faf5ff", // Light purple
+  "#fdf2f8", // Light pink
+  "#f9fafb", // Light gray
+]
 
 function DraggableCard({ card, onCardClick }: { card: CardType; onCardClick: (card: CardType) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id })
@@ -199,6 +217,8 @@ function DroppableList({
   const [newCardTitle, setNewCardTitle] = useState("")
   const [isEditingList, setIsEditingList] = useState(false)
   const [editListTitle, setEditListTitle] = useState(list.title)
+  const [editListColor, setEditListColor] = useState(list.color || "#f1f5f9")
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
   
   const { isOver, setNodeRef } = useDroppable({
     id: list.id,
@@ -227,6 +247,7 @@ function DroppableList({
     try {
       await updateList(list.id, {
         title: editListTitle.trim(),
+        color: editListColor,
       })
       setIsEditingList(false)
     } catch (error) {
@@ -248,7 +269,10 @@ function DroppableList({
     }
   }
   return (
-    <div className="flex-shrink-0 w-80">
+    <div 
+      className="flex-shrink-0 w-80 rounded-lg p-3 border" 
+      style={{ backgroundColor: list.color || "#f1f5f9" }}
+    >
       <div className="flex items-center justify-between mb-4">
         {isEditingList ? (
           <div className="flex items-center gap-2 flex-1">
@@ -262,6 +286,7 @@ function DroppableList({
                 } else if (e.key === "Escape") {
                   setIsEditingList(false)
                   setEditListTitle(list.title)
+                  setEditListColor(list.color || "#f1f5f9")
                 }
               }}
               onBlur={handleEditList}
@@ -278,33 +303,73 @@ function DroppableList({
           </h2>
         )}
         
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setIsEditingList(true)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit List
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onClick={handleDeleteList}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete List
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-1">
+          <Popover open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Palette className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-3" align="end" sideOffset={8}>
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium">List Color</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {LIST_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      className={`w-8 h-8 rounded-md border-2 hover:scale-110 transition-transform ${
+                        editListColor === color
+                          ? "border-foreground"
+                          : "border-transparent hover:border-gray-300"
+                      }`}
+                      style={{ backgroundColor: color }}
+                      onClick={async () => {
+                        setEditListColor(color)
+                        try {
+                          await updateList(list.id, {
+                            title: list.title,
+                            color: color,
+                          })
+                          setIsColorPickerOpen(false)
+                        } catch (error) {
+                          console.error("Failed to update list color:", error)
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setIsEditingList(true)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit List
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={handleDeleteList}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete List
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <SortableContext items={list.cards.map((card) => card.id)} strategy={verticalListSortingStrategy}>
         <div 
           ref={setNodeRef}
-          className={`space-y-3 min-h-[200px] p-2 rounded-lg border-2 border-dashed transition-colors ${
+          className={`space-y-3 min-h-[200px] p-2 rounded-lg border-2 border-dashed transition-colors bg-background/50 ${
             isOver ? "border-primary bg-primary/5" : "border-transparent hover:border-primary/20"
           }`}
         >

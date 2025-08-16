@@ -13,7 +13,8 @@ export async function PUT(
       where: { id },
       data: {
         title: body.title,
-        position: body.position
+        position: body.position,
+        color: body.color
       },
       include: {
         cards: {

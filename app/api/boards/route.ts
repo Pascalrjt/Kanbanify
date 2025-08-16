@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
         background: body.background || '#0079bf',
         lists: {
           create: [
-            { title: 'To Do', position: 1000 },
-            { title: 'In Progress', position: 2000 },
-            { title: 'Review', position: 3000 },
-            { title: 'Done', position: 4000 }
+            { title: 'To Do', position: 1000, color: '#fef2f2' },
+            { title: 'In Progress', position: 2000, color: '#fef3e2' },
+            { title: 'Review', position: 3000, color: '#f0f9ff' },
+            { title: 'Done', position: 4000, color: '#f0fdf4' }
           ]
         }
       },

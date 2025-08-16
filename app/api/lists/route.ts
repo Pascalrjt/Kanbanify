@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
       data: {
         title: body.title,
         boardId: body.boardId,
-        position: body.position || (lastList?.position || 0) + 1000
+        position: body.position || (lastList?.position || 0) + 1000,
+        color: body.color || "#f1f5f9"
       },
       include: {
         cards: {

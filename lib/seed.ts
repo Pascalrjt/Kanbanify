@@ -66,6 +66,7 @@ export async function seedDatabase() {
         data: {
           title: 'To Do',
           position: 1000,
+          color: '#fef2f2', // Light red
           boardId: board.id,
         },
       }),
@@ -73,6 +74,7 @@ export async function seedDatabase() {
         data: {
           title: 'In Progress',
           position: 2000,
+          color: '#fef3e2', // Light orange
           boardId: board.id,
         },
       }),
@@ -80,6 +82,7 @@ export async function seedDatabase() {
         data: {
           title: 'Review',
           position: 3000,
+          color: '#f0f9ff', // Light blue
           boardId: board.id,
         },
       }),
@@ -87,6 +90,7 @@ export async function seedDatabase() {
         data: {
           title: 'Done',
           position: 4000,
+          color: '#f0fdf4', // Light green
           boardId: board.id,
         },
       }),
