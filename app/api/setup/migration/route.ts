@@ -32,50 +32,46 @@ export async function POST(request: NextRequest) {
       console.log('Tables do not exist, creating schema...')
     }
     
-    // Create the database schema using raw SQL
+    // Create the database schema using individual SQL statements
     console.log('Creating database schema...')
     
-    // Execute the migration SQL directly
-    await prisma.$executeRawUnsafe(`
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "Board" (
+    const sqlStatements = [
+      // Create Board table
+      `CREATE TABLE IF NOT EXISTS "Board" (
           "id" TEXT NOT NULL,
           "title" TEXT NOT NULL,
           "description" TEXT,
           "background" TEXT NOT NULL DEFAULT '#0079bf',
-          "accessCode" TEXT DEFAULT gen_random_uuid()::text,
+          "accessCode" TEXT,
           "isPublic" BOOLEAN NOT NULL DEFAULT false,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
           CONSTRAINT "Board_pkey" PRIMARY KEY ("id")
-      );
-
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "TeamMember" (
+      )`,
+      
+      // Create TeamMember table
+      `CREATE TABLE IF NOT EXISTS "TeamMember" (
           "id" TEXT NOT NULL,
           "name" TEXT NOT NULL,
           "color" TEXT NOT NULL,
           "boardId" TEXT NOT NULL,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
           CONSTRAINT "TeamMember_pkey" PRIMARY KEY ("id")
-      );
-
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "List" (
+      )`,
+      
+      // Create List table
+      `CREATE TABLE IF NOT EXISTS "List" (
           "id" TEXT NOT NULL,
           "title" TEXT NOT NULL,
           "position" INTEGER NOT NULL,
           "color" TEXT DEFAULT '#f1f5f9',
           "boardId" TEXT NOT NULL,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
           CONSTRAINT "List_pkey" PRIMARY KEY ("id")
-      );
-
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "Card" (
+      )`,
+      
+      // Create Card table
+      `CREATE TABLE IF NOT EXISTS "Card" (
           "id" TEXT NOT NULL,
           "title" TEXT NOT NULL,
           "description" TEXT,
@@ -86,95 +82,98 @@ export async function POST(request: NextRequest) {
           "listId" TEXT NOT NULL,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
           "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
           CONSTRAINT "Card_pkey" PRIMARY KEY ("id")
-      );
-
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "CardAssignment" (
+      )`,
+      
+      // Create CardAssignment table
+      `CREATE TABLE IF NOT EXISTS "CardAssignment" (
           "cardId" TEXT NOT NULL,
           "teamMemberId" TEXT NOT NULL,
           "assignedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
           CONSTRAINT "CardAssignment_pkey" PRIMARY KEY ("cardId","teamMemberId")
-      );
-
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "Label" (
+      )`,
+      
+      // Create Label table
+      `CREATE TABLE IF NOT EXISTS "Label" (
           "id" TEXT NOT NULL,
           "name" TEXT NOT NULL,
           "color" TEXT NOT NULL,
           "boardId" TEXT NOT NULL,
-
           CONSTRAINT "Label_pkey" PRIMARY KEY ("id")
-      );
-
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "CardLabel" (
+      )`,
+      
+      // Create CardLabel table
+      `CREATE TABLE IF NOT EXISTS "CardLabel" (
           "cardId" TEXT NOT NULL,
           "labelId" TEXT NOT NULL,
-
           CONSTRAINT "CardLabel_pkey" PRIMARY KEY ("cardId","labelId")
-      );
-
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "ChecklistItem" (
+      )`,
+      
+      // Create ChecklistItem table
+      `CREATE TABLE IF NOT EXISTS "ChecklistItem" (
           "id" TEXT NOT NULL,
           "content" TEXT NOT NULL,
           "completed" BOOLEAN NOT NULL DEFAULT false,
           "cardId" TEXT NOT NULL,
           "position" INTEGER NOT NULL,
           "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
           CONSTRAINT "ChecklistItem_pkey" PRIMARY KEY ("id")
-      );
-
-      -- CreateTable
-      CREATE TABLE IF NOT EXISTS "BoardAccess" (
+      )`,
+      
+      // Create BoardAccess table
+      `CREATE TABLE IF NOT EXISTS "BoardAccess" (
           "id" TEXT NOT NULL,
           "boardId" TEXT NOT NULL,
           "userEmail" TEXT NOT NULL,
           "accessedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
           CONSTRAINT "BoardAccess_pkey" PRIMARY KEY ("id")
-      );
-
-      -- CreateIndex
-      CREATE UNIQUE INDEX IF NOT EXISTS "Board_accessCode_key" ON "Board"("accessCode");
-
-      -- CreateIndex
-      CREATE UNIQUE INDEX IF NOT EXISTS "BoardAccess_boardId_userEmail_key" ON "BoardAccess"("boardId", "userEmail");
-
-      -- AddForeignKey
-      ALTER TABLE "TeamMember" ADD CONSTRAINT IF NOT EXISTS "TeamMember_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-      -- AddForeignKey
-      ALTER TABLE "List" ADD CONSTRAINT IF NOT EXISTS "List_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-      -- AddForeignKey
-      ALTER TABLE "Card" ADD CONSTRAINT IF NOT EXISTS "Card_listId_fkey" FOREIGN KEY ("listId") REFERENCES "List"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-      -- AddForeignKey
-      ALTER TABLE "CardAssignment" ADD CONSTRAINT IF NOT EXISTS "CardAssignment_cardId_fkey" FOREIGN KEY ("cardId") REFERENCES "Card"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-      -- AddForeignKey
-      ALTER TABLE "CardAssignment" ADD CONSTRAINT IF NOT EXISTS "CardAssignment_teamMemberId_fkey" FOREIGN KEY ("teamMemberId") REFERENCES "TeamMember"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-      -- AddForeignKey
-      ALTER TABLE "Label" ADD CONSTRAINT IF NOT EXISTS "Label_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-      -- AddForeignKey
-      ALTER TABLE "CardLabel" ADD CONSTRAINT IF NOT EXISTS "CardLabel_cardId_fkey" FOREIGN KEY ("cardId") REFERENCES "Card"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-      -- AddForeignKey
-      ALTER TABLE "CardLabel" ADD CONSTRAINT IF NOT EXISTS "CardLabel_labelId_fkey" FOREIGN KEY ("labelId") REFERENCES "Label"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-      -- AddForeignKey
-      ALTER TABLE "ChecklistItem" ADD CONSTRAINT IF NOT EXISTS "ChecklistItem_cardId_fkey" FOREIGN KEY ("cardId") REFERENCES "Card"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-      -- AddForeignKey
-      ALTER TABLE "BoardAccess" ADD CONSTRAINT IF NOT EXISTS "BoardAccess_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-    `)
+      )`
+    ]
+    
+    // Execute each statement individually
+    for (let i = 0; i < sqlStatements.length; i++) {
+      console.log(`Executing statement ${i + 1}/${sqlStatements.length}`)
+      await prisma.$executeRawUnsafe(sqlStatements[i])
+    }
+    
+    console.log('Creating indexes...')
+    
+    // Create indexes (ignore if they already exist)
+    try {
+      await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "Board_accessCode_key" ON "Board"("accessCode")`)
+    } catch (e) {
+      console.log('Index Board_accessCode_key might already exist')
+    }
+    
+    try {
+      await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "BoardAccess_boardId_userEmail_key" ON "BoardAccess"("boardId", "userEmail")`)
+    } catch (e) {
+      console.log('Index BoardAccess_boardId_userEmail_key might already exist')
+    }
+    
+    console.log('Adding foreign key constraints...')
+    
+    // Add foreign keys (ignore if they already exist)
+    const foreignKeys = [
+      `ALTER TABLE "TeamMember" ADD CONSTRAINT "TeamMember_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
+      `ALTER TABLE "List" ADD CONSTRAINT "List_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
+      `ALTER TABLE "Card" ADD CONSTRAINT "Card_listId_fkey" FOREIGN KEY ("listId") REFERENCES "List"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
+      `ALTER TABLE "CardAssignment" ADD CONSTRAINT "CardAssignment_cardId_fkey" FOREIGN KEY ("cardId") REFERENCES "Card"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
+      `ALTER TABLE "CardAssignment" ADD CONSTRAINT "CardAssignment_teamMemberId_fkey" FOREIGN KEY ("teamMemberId") REFERENCES "TeamMember"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
+      `ALTER TABLE "Label" ADD CONSTRAINT "Label_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
+      `ALTER TABLE "CardLabel" ADD CONSTRAINT "CardLabel_cardId_fkey" FOREIGN KEY ("cardId") REFERENCES "Card"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
+      `ALTER TABLE "CardLabel" ADD CONSTRAINT "CardLabel_labelId_fkey" FOREIGN KEY ("labelId") REFERENCES "Label"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
+      `ALTER TABLE "ChecklistItem" ADD CONSTRAINT "ChecklistItem_cardId_fkey" FOREIGN KEY ("cardId") REFERENCES "Card"("id") ON DELETE CASCADE ON UPDATE CASCADE`,
+      `ALTER TABLE "BoardAccess" ADD CONSTRAINT "BoardAccess_boardId_fkey" FOREIGN KEY ("boardId") REFERENCES "Board"("id") ON DELETE CASCADE ON UPDATE CASCADE`
+    ]
+    
+    for (const fk of foreignKeys) {
+      try {
+        await prisma.$executeRawUnsafe(fk)
+      } catch (e) {
+        console.log('Foreign key constraint might already exist:', e.message)
+      }
+    }
     
     console.log('Database schema created successfully')
     
