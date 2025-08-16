@@ -18,9 +18,8 @@ const openSans = Open_Sans({
 })
 
 export const metadata: Metadata = {
-  title: "Project Management Board",
+  title: "Kanbanify",
   description: "Modern kanban-style project management tool",
-  generator: "v0.app",
 }
 
 export default function RootLayout({
