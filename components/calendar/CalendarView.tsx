@@ -20,6 +20,7 @@ interface CalendarEvent {
   resource: CardType
   priority: 'low' | 'medium' | 'high'
   listTitle: string
+  listColor: string
 }
 
 interface CalendarViewProps {
@@ -41,14 +42,19 @@ export function CalendarView({ height }: CalendarViewProps) {
         const list = lists.find(l => l.id === card.listId)
         const dueDate = new Date(card.dueDate!)
         
+        // For week/day views, make events span 1 hour
+        const endDate = new Date(dueDate)
+        endDate.setHours(endDate.getHours() + 1)
+        
         return {
           id: card.id,
           title: card.title,
           start: dueDate,
-          end: dueDate,
+          end: endDate,
           resource: card,
           priority: card.priority || 'medium',
-          listTitle: list?.title || 'Unknown List'
+          listTitle: list?.title || 'Unknown List',
+          listColor: list?.color || '#f1f5f9'
         }
       })
   }, [cards, lists])
@@ -61,16 +67,30 @@ export function CalendarView({ height }: CalendarViewProps) {
 
   // Custom event component
   const EventComponent = ({ event }: { event: CalendarEvent }) => {
-    const getPriorityColor = (priority: string) => {
+    const getListColorClass = (listColor: string) => {
+      // Convert hex color to RGB for better contrast calculation
+      const hex = listColor.replace('#', '')
+      const r = parseInt(hex.substr(0, 2), 16)
+      const g = parseInt(hex.substr(2, 2), 16)
+      const b = parseInt(hex.substr(4, 2), 16)
+      
+      // Calculate brightness to determine text color
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000
+      const textColor = brightness > 128 ? 'text-gray-800' : 'text-white'
+      
+      return textColor
+    }
+
+    const getPriorityBorderColor = (priority: string) => {
       switch (priority) {
         case 'high':
-          return 'bg-red-500 border-red-600'
+          return '#dc2626' // red-600
         case 'medium':
-          return 'bg-yellow-500 border-yellow-600'
+          return '#d97706' // yellow-600
         case 'low':
-          return 'bg-green-500 border-green-600'
+          return '#059669' // green-600
         default:
-          return 'bg-gray-500 border-gray-600'
+          return '#4b5563' // gray-600
       }
     }
 
@@ -78,9 +98,15 @@ export function CalendarView({ height }: CalendarViewProps) {
 
     return (
       <div className="calendar-event">
-        <div className={`px-2 py-1 rounded text-white text-xs font-medium ${getPriorityColor(event.priority)} ${
-          isOverdue ? 'ring-2 ring-red-300 ring-opacity-50' : ''
-        }`}>
+        <div 
+          className={`px-2 py-1 rounded text-xs font-medium border-2 ${getListColorClass(event.listColor)} ${
+            isOverdue ? 'ring-2 ring-red-300 ring-opacity-50' : ''
+          }`}
+          style={{ 
+            backgroundColor: event.listColor,
+            borderColor: getPriorityBorderColor(event.priority)
+          }}
+        >
           <div className="truncate">
             {isOverdue && '⚠️ '}
             {event.title}
@@ -189,37 +215,40 @@ export function CalendarView({ height }: CalendarViewProps) {
 
   // Custom event prop getter for styling
   const eventPropGetter = useCallback((event: CalendarEvent) => {
-    const getPriorityStyle = (priority: string) => {
-      switch (priority) {
-        case 'high':
-          return {
-            backgroundColor: '#ef4444',
-            borderColor: '#dc2626',
-            color: 'white'
-          }
-        case 'medium':
-          return {
-            backgroundColor: '#f59e0b',
-            borderColor: '#d97706',
-            color: 'white'
-          }
-        case 'low':
-          return {
-            backgroundColor: '#10b981',
-            borderColor: '#059669',
-            color: 'white'
-          }
-        default:
-          return {
-            backgroundColor: '#6b7280',
-            borderColor: '#4b5563',
-            color: 'white'
-          }
+    const getEventStyle = (listColor: string, priority: string) => {
+      // Convert hex color to RGB for better contrast calculation
+      const hex = listColor.replace('#', '')
+      const r = parseInt(hex.substr(0, 2), 16)
+      const g = parseInt(hex.substr(2, 2), 16)
+      const b = parseInt(hex.substr(4, 2), 16)
+      
+      // Calculate brightness to determine text color
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000
+      const textColor = brightness > 128 ? '#374151' : '#ffffff'
+      
+      // Get priority border color
+      const getPriorityBorderColor = (priority: string) => {
+        switch (priority) {
+          case 'high':
+            return '#dc2626' // red-600
+          case 'medium':
+            return '#d97706' // yellow-600
+          case 'low':
+            return '#059669' // green-600
+          default:
+            return '#4b5563' // gray-600
+        }
+      }
+      
+      return {
+        backgroundColor: listColor,
+        borderColor: getPriorityBorderColor(priority),
+        color: textColor
       }
     }
 
     return {
-      style: getPriorityStyle(event.priority)
+      style: getEventStyle(event.listColor, event.priority)
     }
   }, [])
 
