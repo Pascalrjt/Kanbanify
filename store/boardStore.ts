@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
+import { toast } from 'sonner'
 import { 
   Board, 
   List, 
@@ -150,11 +151,13 @@ export const useBoardStore = create<Store>()(
           state.isLoading = false
           state.error = null
         })
+        toast.success('Board created successfully!')
       } catch (error) {
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to create board'
           state.isLoading = false
         })
+        toast.error(error instanceof Error ? error.message : 'Failed to create board')
       }
     },
 
@@ -173,10 +176,12 @@ export const useBoardStore = create<Store>()(
             state.currentBoard = updatedBoard
           }
         })
+        toast.success('Board updated successfully!')
       } catch (error) {
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to update board'
         })
+        toast.error(error instanceof Error ? error.message : 'Failed to update board')
       }
     },
 
@@ -212,10 +217,12 @@ export const useBoardStore = create<Store>()(
             }
           }
         })
+        toast.success('Board deleted successfully!')
       } catch (error) {
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to delete board'
         })
+        toast.error(error instanceof Error ? error.message : 'Failed to delete board')
       }
     },
 
@@ -229,6 +236,7 @@ export const useBoardStore = create<Store>()(
         set((state) => {
           state.lists.push(newList)
         })
+        toast.success('List created successfully!')
       } catch (error) {
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to create list'
@@ -315,6 +323,7 @@ export const useBoardStore = create<Store>()(
         set((state) => {
           state.cards.push(newCard)
         })
+        toast.success('Card created successfully!')
       } catch (error) {
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to create card'
@@ -369,6 +378,7 @@ export const useBoardStore = create<Store>()(
         set((state) => {
           state.cards = state.cards.filter(c => c.id !== cardId)
         })
+        toast.success('Card deleted successfully!')
       } catch (error) {
         set((state) => {
           state.error = error instanceof Error ? error.message : 'Failed to delete card'

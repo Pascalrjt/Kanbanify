@@ -810,10 +810,6 @@ export default function KanbanBoard() {
                   </Button>
                 }
               />
-              <Button variant="ghost" className="w-full justify-start text-sm">
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Button>
             </div>
           </div>
         )}
@@ -835,7 +831,7 @@ export default function KanbanBoard() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
                   placeholder="Search cards..."
-                  className="pl-10 w-64"
+                  className="pl-10 w-64 bg-white"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   disabled={!currentBoard}
@@ -914,9 +910,6 @@ export default function KanbanBoard() {
                   </Avatar>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>Profile</DropdownMenuItem>
-                  <DropdownMenuItem>Settings</DropdownMenuItem>
-                  <DropdownMenuSeparator />
                   {!isAdmin ? (
                     <DropdownMenuItem onClick={() => setShowAdminLogin(true)}>
                       <Crown className="h-4 w-4 mr-2" />
@@ -1115,20 +1108,15 @@ export default function KanbanBoard() {
       </div>
 
       {/* Admin Login Modal */}
-      {showAdminLogin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-background rounded-lg p-6 max-w-md w-full mx-4">
-            <AdminLogin onSuccess={handleAdminLoginSuccess} />
-            <Button 
-              variant="ghost" 
-              onClick={() => setShowAdminLogin(false)}
-              className="w-full mt-4"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
+      <Dialog open={showAdminLogin} onOpenChange={setShowAdminLogin}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Admin Access</DialogTitle>
+            <DialogDescription>Enter admin password to manage boards</DialogDescription>
+          </DialogHeader>
+          <AdminLogin onSuccess={handleAdminLoginSuccess} />
+        </DialogContent>
+      </Dialog>
 
       {/* Card Detail Modal */}
       <CardDetailModal
