@@ -11,7 +11,7 @@
   "env": {
     "POSTGRES_PRISMA_URL": "@postgres_prisma_url",
     "POSTGRES_URL_NON_POOLING": "@postgres_url_non_pooling", 
-    "DATABASE_URL": "@postgres_prisma_url",
+    "DATABASE_URL": "@database_url",
     "ADMIN_PASSWORD": "@admin_password"
   }
 }
