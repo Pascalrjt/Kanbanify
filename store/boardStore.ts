@@ -126,8 +126,23 @@ export const useBoardStore = create<Store>()(
     createBoard: async (boardData: CreateBoardRequest) => {
       try {
         set((state) => { state.isLoading = true })
+        
+        // Check if user is authenticated as admin
+        const isAdminAuthenticated = typeof window !== 'undefined' && 
+          localStorage.getItem('admin-authenticated') === 'true'
+        
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        }
+        
+        // Add admin session header if authenticated
+        if (isAdminAuthenticated) {
+          headers['x-admin-session'] = 'true'
+        }
+        
         const newBoard = await apiRequest('/api/boards', {
           method: 'POST',
+          headers,
           body: JSON.stringify(boardData),
         })
         set((state) => {
@@ -167,7 +182,21 @@ export const useBoardStore = create<Store>()(
 
     deleteBoard: async (boardId: string) => {
       try {
-        await apiRequest(`/api/boards/${boardId}`, { method: 'DELETE' })
+        // Check if user is authenticated as admin
+        const isAdminAuthenticated = typeof window !== 'undefined' && 
+          localStorage.getItem('admin-authenticated') === 'true'
+        
+        const headers: Record<string, string> = {}
+        
+        // Add admin session header if authenticated
+        if (isAdminAuthenticated) {
+          headers['x-admin-session'] = 'true'
+        }
+        
+        await apiRequest(`/api/boards/${boardId}`, { 
+          method: 'DELETE',
+          headers: Object.keys(headers).length > 0 ? headers : undefined
+        })
         set((state) => {
           state.boards = state.boards.filter(b => b.id !== boardId)
           if (state.currentBoard?.id === boardId) {

@@ -20,6 +20,7 @@ import {
   Archive,
   CheckSquare,
   Palette,
+  Crown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -63,6 +64,9 @@ import { Card as CardType, List as ListType, TeamMember } from "@/types"
 import { CardDetailModal } from "@/components/modals/CardDetailModal"
 import { TeamMemberManager } from "@/components/board/TeamMemberManager"
 import { BoardManager } from "@/components/board/BoardManager"
+import { BoardAccessGate } from "@/components/auth/BoardAccessGate"
+import { AdminLogin } from "@/components/auth/AdminLogin"
+import { isAdminSession, logoutAdmin } from "@/lib/auth"
 
 const LIST_COLORS = [
   "#f1f5f9", // Default light gray
@@ -458,7 +462,14 @@ export default function KanbanBoard() {
   const [memberFilter, setMemberFilter] = useState("all")
   const [isAddingList, setIsAddingList] = useState(false)
   const [newListTitle, setNewListTitle] = useState("")
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [showAdminLogin, setShowAdminLogin] = useState(false)
   const initializedRef = useRef(false)
+
+  // Check admin status on mount
+  useEffect(() => {
+    setIsAdmin(isAdminSession())
+  }, [])
 
   // Load initial data
   useEffect(() => {
@@ -502,6 +513,25 @@ export default function KanbanBoard() {
     } catch (error) {
       console.error("Failed to add list:", error)
     }
+  }
+
+  const handleSignOut = () => {
+    if (isAdmin) {
+      logoutAdmin()
+      setIsAdmin(false)
+    }
+    
+    // Optionally clear all board access when signing out
+    // Uncomment the line below if you want to clear board access on sign out
+    // clearAllBoardAccess()
+    
+    // Refresh the page to ensure proper UI state
+    window.location.reload()
+  }
+
+  const handleAdminLoginSuccess = () => {
+    setIsAdmin(true)
+    setShowAdminLogin(false)
   }
 
   // Create lists with associated cards
@@ -794,7 +824,21 @@ export default function KanbanBoard() {
                   <DropdownMenuItem>Profile</DropdownMenuItem>
                   <DropdownMenuItem>Settings</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>Sign out</DropdownMenuItem>
+                  {!isAdmin ? (
+                    <DropdownMenuItem onClick={() => setShowAdminLogin(true)}>
+                      <Crown className="h-4 w-4 mr-2" />
+                      Admin Login
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem disabled className="text-muted-foreground">
+                      <Crown className="h-4 w-4 mr-2" />
+                      Admin Mode
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    {isAdmin ? "Sign out (Admin)" : "Sign out"}
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -846,13 +890,14 @@ export default function KanbanBoard() {
                 }
               />
             </div>
-          ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={customCollisionDetection}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
+          ) : currentBoard && (isAdminSession() || currentBoard.id) ? (
+            <BoardAccessGate boardId={currentBoard.id}>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={customCollisionDetection}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
               <SortableContext items={filteredLists.map(list => list.id)} strategy={horizontalListSortingStrategy}>
                 <div className="flex gap-6 overflow-x-auto pb-6">
                   {filteredLists.map((list) => (
@@ -932,9 +977,30 @@ export default function KanbanBoard() {
                 ) : null}
               </DragOverlay>
             </DndContext>
+            </BoardAccessGate>
+          ) : (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-muted-foreground">No board selected</div>
+            </div>
           )}
         </main>
       </div>
+
+      {/* Admin Login Modal */}
+      {showAdminLogin && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-background rounded-lg p-6 max-w-md w-full mx-4">
+            <AdminLogin onSuccess={handleAdminLoginSuccess} />
+            <Button 
+              variant="ghost" 
+              onClick={() => setShowAdminLogin(false)}
+              className="w-full mt-4"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Card Detail Modal */}
       <CardDetailModal

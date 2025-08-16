@@ -4,6 +4,8 @@ export interface Board {
   title: string
   description?: string
   background: string
+  accessCode?: string
+  isPublic: boolean
   lists: List[]
   labels: Label[]
   members: TeamMember[]
@@ -135,6 +137,7 @@ export interface CreateBoardRequest {
   title: string
   description?: string
   background?: string
+  adminPassword?: string
 }
 
 export interface CreateTeamMemberRequest {

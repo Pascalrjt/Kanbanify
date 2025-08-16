@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma, handleDatabaseError } from '@/lib/db'
 import { CreateBoardRequest } from '@/types'
+import { checkAdminPassword } from '@/lib/auth'
 
 export async function GET() {
   try {
@@ -44,6 +45,18 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body: CreateBoardRequest = await request.json()
+    
+    // Check admin authentication
+    const adminPassword = request.headers.get('x-admin-password') || body.adminPassword
+    const hasAdminSession = request.headers.get('x-admin-session') === 'true'
+    
+    // Allow if admin session exists or valid admin password provided
+    if (!hasAdminSession && !checkAdminPassword(adminPassword)) {
+      return NextResponse.json(
+        { error: 'Admin authentication required' },
+        { status: 403 }
+      )
+    }
     
     if (!body.title) {
       return NextResponse.json(

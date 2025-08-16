@@ -16,9 +16,12 @@ model Board {
   title       String
   description String?
   background  String       @default("#0079bf")
+  accessCode  String?      @unique @default(cuid()) // Auto-generated access code
+  isPublic    Boolean      @default(false)
   lists       List[]
   labels      Label[]
   members     TeamMember[]
+  accesses    BoardAccess[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -95,4 +98,13 @@ model ChecklistItem {
   card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
   position  Int
   createdAt DateTime @default(now())
+}
+
+model BoardAccess {
+  id          String   @id @default(cuid())
+  boardId     String
+  userEmail   String   // Simple email-based identification
+  accessedAt  DateTime @default(now())
+  board       Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  @@unique([boardId, userEmail])
 }
