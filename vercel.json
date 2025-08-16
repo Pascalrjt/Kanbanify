@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx prisma generate && pnpm build",
+  "buildCommand": "npx prisma generate --no-engine && npx prisma db push && pnpm build",
   "installCommand": "pnpm install",
   "framework": "nextjs",
   "functions": {
