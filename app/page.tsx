@@ -587,7 +587,7 @@ export default function KanbanBoard() {
             variant="ghost"
             size="icon"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="w-full justify-start"
+            className={`w-full ${sidebarOpen ? 'justify-start' : 'justify-center'}`}
           >
             <Home className="h-5 w-5" />
             {sidebarOpen && <span className="ml-2">Dashboard</span>}
