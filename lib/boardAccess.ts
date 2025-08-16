@@ -9,22 +9,41 @@ export async function validateBoardAccess(boardId: string, accessCode: string): 
 
 export function getBoardAccess(): string[] {
   if (typeof window === 'undefined') return []
-  const access = localStorage.getItem('board-access')
-  return access ? JSON.parse(access) : []
+  try {
+    const access = localStorage.getItem('board-access')
+    return access ? JSON.parse(access) : []
+  } catch (error) {
+    console.error('Error reading board access from localStorage:', error)
+    // Clear corrupted data
+    localStorage.removeItem('board-access')
+    return []
+  }
 }
 
 export function addBoardAccess(boardId: string): void {
-  const current = getBoardAccess()
-  const updated = [...new Set([...current, boardId])]
-  localStorage.setItem('board-access', JSON.stringify(updated))
+  try {
+    const current = getBoardAccess()
+    const updated = [...new Set([...current, boardId])]
+    localStorage.setItem('board-access', JSON.stringify(updated))
+  } catch (error) {
+    console.error('Error saving board access to localStorage:', error)
+  }
 }
 
 export function removeBoardAccess(boardId: string): void {
-  const current = getBoardAccess()
-  const updated = current.filter(id => id !== boardId)
-  localStorage.setItem('board-access', JSON.stringify(updated))
+  try {
+    const current = getBoardAccess()
+    const updated = current.filter(id => id !== boardId)
+    localStorage.setItem('board-access', JSON.stringify(updated))
+  } catch (error) {
+    console.error('Error removing board access from localStorage:', error)
+  }
 }
 
 export function clearAllBoardAccess(): void {
-  localStorage.removeItem('board-access')
+  try {
+    localStorage.removeItem('board-access')
+  } catch (error) {
+    console.error('Error clearing board access from localStorage:', error)
+  }
 }

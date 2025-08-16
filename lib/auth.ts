@@ -6,17 +6,30 @@ export function checkAdminPassword(password: string): boolean {
 
 export function isAdminSession(): boolean {
   if (typeof window === 'undefined') return false
-  return localStorage.getItem('admin-authenticated') === 'true'
+  try {
+    return localStorage.getItem('admin-authenticated') === 'true'
+  } catch (error) {
+    console.error('Error reading admin session from localStorage:', error)
+    return false
+  }
 }
 
 export function setAdminSession(isAdmin: boolean): void {
-  if (isAdmin) {
-    localStorage.setItem('admin-authenticated', 'true')
-  } else {
-    localStorage.removeItem('admin-authenticated')
+  try {
+    if (isAdmin) {
+      localStorage.setItem('admin-authenticated', 'true')
+    } else {
+      localStorage.removeItem('admin-authenticated')
+    }
+  } catch (error) {
+    console.error('Error setting admin session in localStorage:', error)
   }
 }
 
 export function logoutAdmin(): void {
-  localStorage.removeItem('admin-authenticated')
+  try {
+    localStorage.removeItem('admin-authenticated')
+  } catch (error) {
+    console.error('Error removing admin session from localStorage:', error)
+  }
 }

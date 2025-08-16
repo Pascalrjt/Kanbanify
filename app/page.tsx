@@ -21,6 +21,7 @@ import {
   CheckSquare,
   Palette,
   Crown,
+  Key,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -66,7 +67,9 @@ import { TeamMemberManager } from "@/components/board/TeamMemberManager"
 import { BoardManager } from "@/components/board/BoardManager"
 import { BoardAccessGate } from "@/components/auth/BoardAccessGate"
 import { AdminLogin } from "@/components/auth/AdminLogin"
+import { BoardAccessModal } from "@/components/modals/BoardAccessModal"
 import { isAdminSession, logoutAdmin } from "@/lib/auth"
+import { getBoardAccess } from "@/lib/boardAccess"
 
 const LIST_COLORS = [
   "#f1f5f9", // Default light gray
@@ -370,23 +373,36 @@ function DroppableList({
         </div>
       </div>
 
-      <SortableContext items={list.cards.map((card) => card.id)} strategy={verticalListSortingStrategy}>
-        <div 
-          ref={setNodeRef}
-          className={`space-y-3 min-h-[200px] p-2 rounded-lg border-2 border-dashed transition-colors bg-background/50 ${
-            isOver ? "border-primary bg-primary/5" : "border-transparent hover:border-primary/20"
-          }`}
-        >
-          {list.cards.map((card) => (
-            <DraggableCard key={card.id} card={card} onCardClick={onCardClick} />
-          ))}
-          {list.cards.length === 0 && !isAddingCard && (
-            <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-              Drop cards here or add a new one
-            </div>
-          )}
-        </div>
-      </SortableContext>
+      <div 
+        ref={setNodeRef}
+        className={`min-h-[200px] p-2 rounded-lg border-2 border-dashed transition-all duration-200 ${
+          list.cards.length === 0 
+            ? `bg-muted/30 ${isOver ? "border-primary bg-primary/10 shadow-lg" : "border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/50"}`
+            : `bg-background/50 ${isOver ? "border-primary bg-primary/5" : "border-transparent hover:border-primary/20"}`
+        }`}
+      >
+        <SortableContext items={list.cards.map((card) => card.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-3 min-h-[180px]">
+            {list.cards.map((card) => (
+              <DraggableCard key={card.id} card={card} onCardClick={onCardClick} />
+            ))}
+            {list.cards.length === 0 && !isAddingCard && (
+              <div className={`flex flex-col items-center justify-center h-40 text-muted-foreground text-sm transition-all ${
+                isOver ? "text-primary font-medium scale-105" : ""
+              }`}>
+                <div className={`mb-2 p-3 rounded-full border-2 border-dashed transition-all ${
+                  isOver ? "border-primary bg-primary/10" : "border-muted-foreground/30"
+                }`}>
+                  <Plus className={`h-6 w-6 transition-all ${isOver ? "text-primary" : "text-muted-foreground"}`} />
+                </div>
+                <div className="text-center">
+                  {isOver ? "Drop card here" : "Drop cards here or add a new one"}
+                </div>
+              </div>
+            )}
+          </div>
+        </SortableContext>
+      </div>
 
       {isAddingCard ? (
         <div className="mt-3 space-y-2">
@@ -464,6 +480,7 @@ export default function KanbanBoard() {
   const [newListTitle, setNewListTitle] = useState("")
   const [isAdmin, setIsAdmin] = useState(false)
   const [showAdminLogin, setShowAdminLogin] = useState(false)
+  const [showBoardAccessModal, setShowBoardAccessModal] = useState(false)
   const initializedRef = useRef(false)
 
   // Check admin status on mount
@@ -482,18 +499,50 @@ export default function KanbanBoard() {
     initializeApp()
   }, [])
 
-  // Auto-select board based on localStorage or fallback to first board
+  // Check for users with no accessible boards and show modal
+  useEffect(() => {
+    if (boards.length > 0 && initializedRef.current && !isLoading) {
+      const accessibleBoards = isAdmin ? boards : boards.filter(board => 
+        getBoardAccess().includes(board.id)
+      )
+      
+      // If user has no accessible boards, show access modal
+      if (accessibleBoards.length === 0) {
+        setShowBoardAccessModal(true)
+      }
+    }
+  }, [boards, isAdmin, isLoading])
+
+  // Auto-select board based on localStorage or fallback to first accessible board
   useEffect(() => {
     if (!currentBoard && boards.length > 0 && initializedRef.current) {
-      // Try to restore the last selected board from localStorage
-      const lastBoardId = localStorage.getItem('kanbanify-current-board-id')
-      const lastBoard = lastBoardId ? boards.find(b => b.id === lastBoardId) : null
-      
-      // Use last board if found, otherwise use the first board
-      const boardToSelect = lastBoard || boards[0]
-      fetchBoard(boardToSelect.id)
+      try {
+        // Get accessible boards (admin can access all, non-admin needs access codes)
+        const accessibleBoards = isAdmin ? boards : boards.filter(board => 
+          getBoardAccess().includes(board.id)
+        )
+        
+        if (accessibleBoards.length > 0) {
+          // Try to restore the last selected board from localStorage if it's accessible
+          const lastBoardId = localStorage.getItem('kanbanify-current-board-id')
+          const lastBoard = lastBoardId ? accessibleBoards.find(b => b.id === lastBoardId) : null
+          
+          // Use last board if found and accessible, otherwise use the first accessible board
+          const boardToSelect = lastBoard || accessibleBoards[0]
+          fetchBoard(boardToSelect.id)
+        } else {
+          // No accessible boards - modal will be shown by other useEffect
+          console.log('No accessible boards found')
+        }
+      } catch (error) {
+        console.error('Error in board auto-selection:', error)
+        // Clear potentially corrupted localStorage data
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('kanbanify-current-board-id')
+        }
+      }
     }
-  }, [boards, currentBoard])
+  }, [boards, currentBoard, isAdmin])
 
   const handleCardClick = (card: CardType) => {
     setSelectedCard(card)
@@ -534,6 +583,12 @@ export default function KanbanBoard() {
     setShowAdminLogin(false)
   }
 
+  const handleBoardAccessSuccess = async () => {
+    // Refresh boards and close modal
+    await fetchBoards()
+    setShowBoardAccessModal(false)
+  }
+
   // Create lists with associated cards
   const listsWithCards = lists.map(list => ({
     ...list,
@@ -550,14 +605,47 @@ export default function KanbanBoard() {
 
   // Custom collision detection for mixed list and card dragging
   const customCollisionDetection = (args: any) => {
-    const { active } = args
+    const { active, droppableRects, droppableContainers, pointerCoordinates } = args
     
     if (active.data.current?.type === 'list') {
       // For list dragging, use rectIntersection for better horizontal detection
       return rectIntersection(args)
     } else {
-      // For card dragging, use closestCorners
-      return closestCorners(args)
+      // For card dragging, we need special handling for empty lists
+      
+      // Get all list containers (these are the main drop zones for each list)
+      const listContainers = Array.from(droppableContainers.values()).filter(
+        container => lists.some(list => list.id === container.id)
+      )
+      
+      // Check if pointer is directly over any list container
+      if (pointerCoordinates) {
+        const directListHit = listContainers.find(container => {
+          const rect = droppableRects.get(container.id)
+          if (!rect) return false
+          
+          return (
+            pointerCoordinates.x >= rect.left &&
+            pointerCoordinates.x <= rect.right &&
+            pointerCoordinates.y >= rect.top &&
+            pointerCoordinates.y <= rect.bottom
+          )
+        })
+        
+        if (directListHit) {
+          return [{ id: directListHit.id }]
+        }
+      }
+      
+      // Fall back to standard collision detection
+      const closestCornersResult = closestCorners(args)
+      
+      // If no result from closestCorners, try rectIntersection
+      if (!closestCornersResult || closestCornersResult.length === 0) {
+        return rectIntersection(args)
+      }
+      
+      return closestCornersResult
     }
   }
 
@@ -696,9 +784,11 @@ export default function KanbanBoard() {
               <div className="space-y-1">
                 <div className="p-2 bg-muted rounded-md">
                   <div className="text-sm font-medium">{currentBoard?.title || 'No board selected'}</div>
-                  {currentBoard?.description && (
+                  {currentBoard?.description ? (
                     <div className="text-xs text-muted-foreground">{currentBoard.description}</div>
-                  )}
+                  ) : !currentBoard ? (
+                    <div className="text-xs text-muted-foreground">Select or access a board to get started</div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -734,9 +824,11 @@ export default function KanbanBoard() {
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold text-foreground font-heading">{currentBoard?.title || 'Loading...'}</h1>
+                <h1 className="text-2xl font-bold text-foreground font-heading">
+                  {currentBoard?.title || (isLoading ? 'Loading...' : 'No Board Selected')}
+                </h1>
                 <Badge variant="secondary" className="text-xs">
-                  {cards.length} cards
+                  {currentBoard ? `${cards.length} cards` : '0 cards'}
                 </Badge>
               </div>
               <div className="relative">
@@ -746,6 +838,7 @@ export default function KanbanBoard() {
                   className="pl-10 w-64"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  disabled={!currentBoard}
                 />
               </div>
             </div>
@@ -753,7 +846,7 @@ export default function KanbanBoard() {
             <div className="flex items-center gap-3">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" disabled={!currentBoard}>
                     <Filter className="h-4 w-4 mr-2" />
                     Priority
                     <ChevronDown className="h-4 w-4 ml-2" />
@@ -770,7 +863,7 @@ export default function KanbanBoard() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" disabled={!currentBoard}>
                     <Users className="h-4 w-4 mr-2" />
                     Member
                     <ChevronDown className="h-4 w-4 ml-2" />
@@ -802,7 +895,7 @@ export default function KanbanBoard() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" disabled={!currentBoard}>
                 <Calendar className="h-4 w-4 mr-2" />
                 Calendar
               </Button>
@@ -848,14 +941,16 @@ export default function KanbanBoard() {
             <div className="flex items-center text-sm text-muted-foreground">
               <span>Workspace</span>
               <span className="mx-2">/</span>
-              <span className="text-foreground font-medium">{currentBoard?.title || 'Loading...'}</span>
-              {searchQuery && (
+              <span className="text-foreground font-medium">
+                {currentBoard?.title || (isLoading ? 'Loading...' : 'No Board Selected')}
+              </span>
+              {currentBoard && searchQuery && (
                 <>
                   <span className="mx-2">/</span>
                   <span>Search: "{searchQuery}"</span>
                 </>
               )}
-              {filterBy !== "all" && (
+              {currentBoard && filterBy !== "all" && (
                 <>
                   <span className="mx-2">/</span>
                   <span>Filter: {filterBy} priority</span>
@@ -874,23 +969,56 @@ export default function KanbanBoard() {
             <div className="flex items-center justify-center h-64">
               <div className="text-red-500">Error: {error}</div>
             </div>
-          ) : boards.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 space-y-4">
-              <Folder className="h-16 w-16 text-muted-foreground opacity-50" />
-              <div className="text-center space-y-2">
-                <h3 className="text-lg font-medium">No boards found</h3>
-                <p className="text-muted-foreground">Create your first board to get started</p>
+          ) : boards.length === 0 && !isLoading ? (
+            // Show creation interface for admins, loading for non-admins (modal will appear)
+            isAdmin ? (
+              <div className="flex flex-col items-center justify-center h-64 space-y-4">
+                <Folder className="h-16 w-16 text-muted-foreground opacity-50" />
+                <div className="text-center space-y-2">
+                  <h3 className="text-lg font-medium">No boards found</h3>
+                  <p className="text-muted-foreground">Create your first board to get started</p>
+                </div>
+                <BoardManager 
+                  trigger={
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create First Board
+                    </Button>
+                  }
+                />
               </div>
-              <BoardManager 
-                trigger={
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create First Board
-                  </Button>
-                }
-              />
+            ) : (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-muted-foreground">Loading boards...</div>
+              </div>
+            )
+          ) : !currentBoard ? (
+            // User has accessible boards but none is currently selected
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center space-y-3">
+                <div className="text-muted-foreground">No board selected</div>
+                <div className="flex gap-2 justify-center">
+                  <BoardManager 
+                    trigger={
+                      <Button variant="outline">
+                        <Folder className="h-4 w-4 mr-2" />
+                        Select Board
+                      </Button>
+                    }
+                  />
+                  {!isAdmin && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowBoardAccessModal(true)}
+                    >
+                      <Key className="h-4 w-4 mr-2" />
+                      Add Board Access
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
-          ) : currentBoard && (isAdminSession() || currentBoard.id) ? (
+          ) : currentBoard && (isAdminSession() || getBoardAccess().includes(currentBoard.id)) ? (
             <BoardAccessGate boardId={currentBoard.id}>
               <DndContext
                 sensors={sensors}
@@ -941,7 +1069,7 @@ export default function KanbanBoard() {
                   ) : (
                     <Button
                       variant="ghost"
-                      className="w-full h-12 border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 backdrop-blur-sm"
+                      className="w-full h-12 border-2 border-dashed border-border hover:border-primary backdrop-blur-sm"
                       onClick={() => setIsAddingList(true)}
                     >
                       <Plus className="h-4 w-4 mr-2" />
@@ -980,7 +1108,7 @@ export default function KanbanBoard() {
             </BoardAccessGate>
           ) : (
             <div className="flex items-center justify-center h-64">
-              <div className="text-muted-foreground">No board selected</div>
+              <div className="text-muted-foreground">Access denied or board not found</div>
             </div>
           )}
         </main>
@@ -1007,6 +1135,13 @@ export default function KanbanBoard() {
         card={selectedCard}
         open={isCardModalOpen}
         onOpenChange={setIsCardModalOpen}
+      />
+
+      {/* Board Access Modal */}
+      <BoardAccessModal
+        open={showBoardAccessModal}
+        onOpenChange={setShowBoardAccessModal}
+        onSuccess={handleBoardAccessSuccess}
       />
     </div>
   )
