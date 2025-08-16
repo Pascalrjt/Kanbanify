@@ -68,6 +68,16 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
     }
   }, [card])
 
+  // Reset editing state when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      setIsEditing(false)
+      setIsCalendarOpen(false)
+      setIsAssigneeMenuOpen(false)
+      setIsSaving(false)
+    }
+  }, [open])
+
   if (!card) return null
 
   const getPriorityColor = (priority: string) => {
@@ -283,9 +293,11 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
               {isEditing ? (
                 <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dueDate ? format(dueDate, "PPP") : "Set due date"}
+                    <Button variant="outline" className="w-full justify-start text-left font-normal min-h-10 h-auto whitespace-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">
+                        {dueDate ? format(dueDate, "PPP") : "Set due date"}
+                      </span>
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start" sideOffset={8}>
@@ -296,14 +308,14 @@ export function CardDetailModal({ card: initialCard, open, onOpenChange }: CardD
                         setDueDate(date)
                         setIsCalendarOpen(false)
                       }}
-                      initialFocus
+                      autoFocus
                     />
                   </PopoverContent>
                 </Popover>
               ) : (
-                <div className="text-sm">
+                <div className="text-sm break-words">
                   {card.dueDate ? (
-                    <span>{format(new Date(card.dueDate), "PPP")}</span>
+                    <span className="break-words">{format(new Date(card.dueDate), "PPP")}</span>
                   ) : (
                     <span className="text-muted-foreground italic">No due date</span>
                   )}

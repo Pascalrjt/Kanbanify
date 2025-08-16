@@ -192,6 +192,7 @@ function ChecklistItemComponent({
         checked={item.completed}
         onCheckedChange={(checked) => onToggle(checked as boolean)}
         id={`checklist-item-${item.id}`}
+        className="border-2 border-gray-800 dark:border-gray-200"
       />
       
       <div className="flex-1 min-w-0">
