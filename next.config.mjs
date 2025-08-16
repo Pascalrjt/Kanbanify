@@ -10,9 +10,7 @@ const nextConfig = {
     unoptimized: true,
   },
   // Vercel production optimizations
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client'],
-  },
+  serverExternalPackages: ['@prisma/client'],
   // Enable static optimization for better performance
   output: 'standalone',
 }
